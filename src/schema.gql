@@ -1,0 +1,95 @@
+# ------------------------------------------------------
+# THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+# ------------------------------------------------------
+
+type AttendanceLog {
+  id: ID!
+  isLate: Boolean!
+  penalty: Penalty
+  scannedAt: DateTime!
+  user: UserReference!
+}
+
+type AuthResponse {
+  accessToken: String!
+}
+
+type Cohort {
+  durationMonths: Int!
+  id: ID!
+  isActive: Boolean!
+  latePenaltyAmount: Int!
+  name: String!
+  pin: String!
+  startDate: DateTime!
+  tenantId: String!
+}
+
+type DashboardMetrics {
+  activeCohorts: Int!
+  todayRevenue: Float!
+  totalStudents: Int!
+}
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
+type Mutation {
+  adminDeleteStudent(id: String!): Boolean!
+  adminLogAttendance(sessionId: String!, studentId: String!): String!
+  adminScanStudentBadge(badgeCode: String!, sessionId: String!): String!
+  adminUpdateStudent(email: String, id: String!, name: String): User!
+  createCohort(durationMonths: Int!, latePenaltyAmount: Int!, name: String!, pin: String!): String!
+  joinCohort(cohortId: String!, pin: String!): Boolean!
+  logAttendance(qrCode: String!): String!
+  loginAdmin(email: String!, password: String!): AuthResponse!
+  loginStudent(identifier: String!, password: String!): AuthResponse!
+  loginWithGoogle(idToken: String!): AuthResponse!
+  registerAdmin(email: String!, name: String!, password: String!, tenantName: String!): String!
+  registerStudent(email: String!, name: String!, password: String!, phone: String!, username: String!): String!
+  updateProfile(name: String, username: String): User!
+  waivePenalty(penaltyId: String!): Penalty!
+}
+
+type Penalty {
+  amount: Int!
+  id: ID!
+  status: String!
+}
+
+type Query {
+  availableCohorts: [Cohort!]!
+  cohortDetails(id: String!): Cohort
+  dashboardMetrics: DashboardMetrics!
+  generateSessionQr(sessionId: String!): String!
+  getAttendanceLogs(cohortId: String): [AttendanceLog!]!
+  listCohorts: [Cohort!]!
+  listStudents: [User!]!
+  me: User!
+  myCohorts: [Cohort!]!
+  myQrBadge: String!
+  studentQrBadge(studentId: String!): String!
+}
+
+type Subscription {
+  attendanceLogged(sessionId: String!): String!
+  onAttendanceUpdated: Boolean!
+  onCohortsUpdated: Boolean!
+  onStudentsUpdated: Boolean!
+}
+
+type User {
+  email: String!
+  id: ID!
+  name: String!
+  phone: String
+  username: String
+}
+
+type UserReference {
+  email: String
+  id: ID!
+  name: String!
+}

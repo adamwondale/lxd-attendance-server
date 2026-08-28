@@ -1,0 +1,99 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id        String           @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  slug      String           @unique
+  timezone  String           @default("Africa/Addis_Ababa") 
+  cohorts   Cohort[]
+  users     UserTenantRole[]
+}
+
+model User {
+  id          String             @id @default(auto()) @map("_id") @db.ObjectId
+  email       String             @unique 
+  password    String?
+  oauthId     String?
+  name        String
+  phone       String?
+  username    String?
+  tenants     UserTenantRole[]
+  cohorts     CohortMembership[]
+  attendance  AttendanceLog[]
+  penalties   Penalty[]
+}
+
+model UserTenantRole {
+  id       String @id @default(auto()) @map("_id") @db.ObjectId
+  userId   String @db.ObjectId
+  tenantId String @db.ObjectId
+  role     String // "STUDENT" | "COORDINATOR" | "SUPER_ADMIN"
+  user     User   @relation(fields: [userId], references: [id])
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+  @@unique([userId, tenantId])
+}
+
+model Cohort {
+  id                 String             @id @default(auto()) @map("_id") @db.ObjectId
+  tenantId           String             @db.ObjectId
+  name               String
+  pin                String             @unique
+  startDate          DateTime           @default(now())
+  durationMonths     Int                // e.g., 3 or 6
+  isActive           Boolean            @default(true)
+  latePenaltyAmount  Int                @default(25)
+  tenant             Tenant             @relation(fields: [tenantId], references: [id])
+  sessions           CohortSession[]
+  memberships        CohortMembership[] 
+}
+
+model CohortMembership {
+  id       String   @id @default(auto()) @map("_id") @db.ObjectId
+  cohortId String   @db.ObjectId
+  userId   String   @db.ObjectId
+  joinedAt DateTime @default(now())
+  status   String   @default("ACTIVE") // "ACTIVE" | "EXPIRED"
+  cohort   Cohort   @relation(fields: [cohortId], references: [id])
+  user     User     @relation(fields: [userId], references: [id])
+  @@unique([cohortId, userId]) 
+}
+
+model CohortSession {
+  id                 String          @id @default(auto()) @map("_id") @db.ObjectId
+  cohortId           String          @db.ObjectId
+  name               String          
+  startTime          String          // e.g., "09:00" (Local to Tenant TZ)
+  gracePeriodMinutes Int             // e.g., 5
+  cohort             Cohort          @relation(fields: [cohortId], references: [id])
+  logs               AttendanceLog[]
+}
+
+model AttendanceLog {
+  id        String        @id @default(auto()) @map("_id") @db.ObjectId
+  sessionId String        @db.ObjectId
+  userId    String        @db.ObjectId
+  scannedAt DateTime      @default(now())
+  isLate    Boolean       @default(false)
+  session   CohortSession @relation(fields: [sessionId], references: [id])
+  user      User          @relation(fields: [userId], references: [id])
+  penalty   Penalty?      
+  @@unique([sessionId, userId]) // Idempotency lock
+}
+
+model Penalty {
+  id              String        @id @default(auto()) @map("_id") @db.ObjectId
+  userId          String        @db.ObjectId
+  attendanceLogId String        @unique @db.ObjectId  
+  amount          Int           @default(25) 
+  status          String        @default("UNPAID")
+  createdAt       DateTime      @default(now())
+  user            User          @relation(fields: [userId], references: [id])
+  attendanceLog   AttendanceLog @relation(fields: [attendanceLogId], references: [id])
+}

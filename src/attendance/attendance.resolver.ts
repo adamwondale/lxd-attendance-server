@@ -61,9 +61,8 @@ export class AttendanceResolver {
   @UseGuards(GqlAuthGuard, RolesGuard)
   async adminScanStudentBadge(
     @Args('badgeCode') badgeCode: string,
-    @Args('sessionId') sessionId: string
   ) {
-    const log = await this.attendanceService.adminScanStudentBadge(badgeCode, sessionId);
+    const log = await this.attendanceService.adminScanStudentBadge(badgeCode);
     if (log) {
       this.pubSub.publish('attendanceUpdated', { onAttendanceUpdated: true });
     }

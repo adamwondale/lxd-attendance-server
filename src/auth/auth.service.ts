@@ -59,7 +59,7 @@ export class AuthService {
 
     const payload = { sub: user.id, email: user.email, role: 'SUPER_ADMIN' }; // hardcoding role for MVP
     return {
-      accessToken: this.jwtService.sign(payload),
+      accessToken: this.jwtService.sign(payload, { expiresIn: '7d' }),
     };
   }
 
@@ -115,7 +115,7 @@ export class AuthService {
 
     const payload = { sub: user.id, email: user.email, role: 'STUDENT' };
     return {
-      accessToken: this.jwtService.sign(payload),
+      accessToken: this.jwtService.sign(payload, { expiresIn: '180d' }),
     };
   }
 
@@ -163,7 +163,7 @@ export class AuthService {
 
     const jwtPayload = { sub: user.id, email: user.email, role: 'STUDENT' };
     return {
-      accessToken: this.jwtService.sign(jwtPayload),
+      accessToken: this.jwtService.sign(jwtPayload, { expiresIn: '180d' }),
     };
   }
 }

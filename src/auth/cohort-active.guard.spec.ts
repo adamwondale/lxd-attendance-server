@@ -46,11 +46,14 @@ describe('CohortActiveGuard (GUARD-01)', () => {
     const startDate = new Date();
     startDate.setMonth(startDate.getMonth() - 1);
     
+    const endDate = new Date();
+    endDate.setMonth(endDate.getMonth() + 2); // 2 months in future
+
     prismaMock.cohort.findUnique.mockResolvedValue({
       id: 'valid-cohort',
       isActive: true,
       startDate: startDate,
-      durationMonths: 3,
+      endDate: endDate,
     } as any);
 
     const result = await guard.canActivate(ctx);
@@ -64,7 +67,7 @@ describe('CohortActiveGuard (GUARD-01)', () => {
       id: 'inactive-cohort',
       isActive: false,
       startDate: new Date(),
-      durationMonths: 3,
+      endDate: new Date(),
     } as any);
 
     await expect(guard.canActivate(ctx)).rejects.toThrow(ForbiddenException);
@@ -78,11 +81,14 @@ describe('CohortActiveGuard (GUARD-01)', () => {
     const startDate = new Date();
     startDate.setMonth(startDate.getMonth() - 4);
     
+    const endDate = new Date();
+    endDate.setMonth(endDate.getMonth() - 1); // 1 month ago -> EXPIRED
+
     prismaMock.cohort.findUnique.mockResolvedValue({
       id: 'expired-cohort',
       isActive: true,
       startDate: startDate,
-      durationMonths: 3,
+      endDate: endDate,
     } as any);
 
     await expect(guard.canActivate(ctx)).rejects.toThrow(ForbiddenException);

@@ -23,7 +23,7 @@ describe('QrResolver', () => {
 
   it('QR-STATIC-03: myQrBadge generates code for current user', () => {
     qrServiceMock.generateStudentQr.mockReturnValue('student-1.signature');
-    const user = { id: 'student-1', role: 'STUDENT' };
+    const user = { userId: 'student-1', role: 'STUDENT' };
     const result = resolver.myQrBadge(user);
     expect(qrServiceMock.generateStudentQr).toHaveBeenCalledWith('student-1');
     expect(result).toBe('student-1.signature');

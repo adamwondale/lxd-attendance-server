@@ -36,10 +36,10 @@ describe('AttendanceResolver (WebSockets)', () => {
     attendanceServiceMock.logAttendance.mockResolvedValue(mockLog as any);
     
     // Simulating context user
-    const result = await resolver.logAttendance({ id: 'student-1' }, 'dummy-qr-code');
+    const result = await resolver.logAttendance({ userId: 'student-1' }, 'dummy-qr-code');
     
     expect(attendanceServiceMock.logAttendance).toHaveBeenCalledWith('student-1', 'dummy-qr-code');
-    expect(pubSubMock.publish).toHaveBeenCalledWith('attendanceLogged', { attendanceLogged: mockLog });
-    expect(result).toEqual(mockLog);
+    expect(pubSubMock.publish).toHaveBeenCalledWith('attendanceLogged', { attendanceLogged: { cohortId: 'dummy-qr-code', logId: 'log-1' } });
+    expect(result).toEqual(mockLog.id);
   });
 });

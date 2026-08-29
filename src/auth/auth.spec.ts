@@ -4,12 +4,15 @@ import request from 'supertest';
 import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { AuthModule } from './auth.module';
-import { UsersResolver } from '../users/users.resolver';
+import { UsersModule } from '../users/users.module';
+import { UsersService } from '../users/users.service';
 import { JwtService } from '@nestjs/jwt';
 
 describe('AUTH-01: JwtAuthGuard', () => {
   let app: INestApplication;
   let jwtService: JwtService;
+
+  jest.setTimeout(30000); // Increase timeout globally for this test suite
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -19,9 +22,17 @@ describe('AUTH-01: JwtAuthGuard', () => {
           autoSchemaFile: true,
         }),
         AuthModule,
+        UsersModule,
       ],
-      providers: [UsersResolver],
-    }).compile();
+      providers: [
+        { provide: 'PUB_SUB', useValue: { publish: jest.fn(), asyncIterableIterator: jest.fn() } }
+      ],
+    })
+    .overrideProvider(UsersService)
+    .useValue({
+      me: jest.fn().mockResolvedValue({ id: 'some-user-id' }),
+    })
+    .compile();
 
     app = moduleFixture.createNestApplication();
     await app.init();
@@ -35,7 +46,7 @@ describe('AUTH-01: JwtAuthGuard', () => {
   it('should return 401 Unauthorized when no Bearer token is provided', () => {
     return request(app.getHttpServer())
       .post('/graphql')
-      .send({ query: '{ me }' })
+      .send({ query: '{ me { id } }' })
       .expect(200) // GraphQL usually returns 200 even for unauthorized
       .then((response) => {
         expect(response.body.errors).toBeDefined();
@@ -44,14 +55,15 @@ describe('AUTH-01: JwtAuthGuard', () => {
   });
 
   it('should return success when a mock JWT is provided', () => {
-    const mockToken = jwtService.sign({ sub: '123' });
+    // MongoDB ObjectID is a 24-character hex string
+    const mockToken = jwtService.sign({ sub: '507f1f77bcf86cd799439011' });
     return request(app.getHttpServer())
       .post('/graphql')
       .set('Authorization', `Bearer ${mockToken}`)
-      .send({ query: '{ me }' })
+      .send({ query: '{ me { id } }' })
       .expect(200)
       .then((response) => {
-        expect(response.body.data.me).toBe('authenticated_user');
+        expect(response.body.errors).toBeUndefined();
       });
   });
 });

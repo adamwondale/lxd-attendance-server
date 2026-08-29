@@ -23,7 +23,7 @@ export class QrResolver {
 
   @Query(() => String)
   @UseGuards(GqlAuthGuard, RolesGuard)
-  generateSessionQr(@Args('sessionId') sessionId: string) {
-    return this.qrService.generateQr(sessionId);
+  generateCohortQr(@Args('cohortId') cohortId: string) {
+    return this.qrService.generateQr(cohortId);
   }
 }

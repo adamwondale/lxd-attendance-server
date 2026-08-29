@@ -45,23 +45,24 @@ model Cohort {
   tenantId           String             @db.ObjectId
   name               String
   pin                String             @unique
-  startDate          DateTime           @default(now())
-  durationMonths     Int                // e.g., 3 or 6
+  startDate          DateTime
+  endDate            DateTime
   isActive           Boolean            @default(true)
-  latePenaltyAmount  Int                @default(25)
   tenant             Tenant             @relation(fields: [tenantId], references: [id])
   sessions           CohortSession[]
   memberships        CohortMembership[] 
 }
 
 model CohortMembership {
-  id       String   @id @default(auto()) @map("_id") @db.ObjectId
-  cohortId String   @db.ObjectId
-  userId   String   @db.ObjectId
-  joinedAt DateTime @default(now())
-  status   String   @default("ACTIVE") // "ACTIVE" | "EXPIRED"
-  cohort   Cohort   @relation(fields: [cohortId], references: [id])
-  user     User     @relation(fields: [userId], references: [id])
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  cohortId  String   @db.ObjectId
+  userId    String   @db.ObjectId
+  sessionId String?  @db.ObjectId
+  joinedAt  DateTime @default(now())
+  status    String   @default("ACTIVE") // "ACTIVE" | "EXPIRED"
+  cohort    Cohort   @relation(fields: [cohortId], references: [id])
+  session   CohortSession? @relation(fields: [sessionId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
   @@unique([cohortId, userId]) 
 }
 
@@ -71,20 +72,24 @@ model CohortSession {
   name               String          
   startTime          String          // e.g., "09:00" (Local to Tenant TZ)
   gracePeriodMinutes Int             // e.g., 5
+  recurrenceDays     String[]        // e.g., ["MON", "TUE"] or ["EVERYDAY"]
+  latePenaltyAmount  Int             @default(25)
   cohort             Cohort          @relation(fields: [cohortId], references: [id])
   logs               AttendanceLog[]
+  memberships        CohortMembership[]
 }
 
 model AttendanceLog {
   id        String        @id @default(auto()) @map("_id") @db.ObjectId
   sessionId String        @db.ObjectId
   userId    String        @db.ObjectId
+  date      String        // e.g. "2026-08-29"
   scannedAt DateTime      @default(now())
   isLate    Boolean       @default(false)
   session   CohortSession @relation(fields: [sessionId], references: [id])
   user      User          @relation(fields: [userId], references: [id])
   penalty   Penalty?      
-  @@unique([sessionId, userId]) // Idempotency lock
+  @@unique([sessionId, userId, date]) // Idempotency lock
 }
 
 model Penalty {

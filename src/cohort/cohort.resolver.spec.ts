@@ -9,12 +9,16 @@ describe('CohortResolver (Cohort Creation)', () => {
   beforeEach(async () => {
     cohortServiceMock = {
       createCohort: jest.fn(),
+      createCohortSession: jest.fn(),
+      updateCohortSession: jest.fn(),
+      deleteCohortSession: jest.fn(),
     } as any;
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CohortResolver,
         { provide: CohortService, useValue: cohortServiceMock },
+        { provide: 'PUB_SUB', useValue: { publish: jest.fn(), asyncIterableIterator: jest.fn() } }
       ],
     }).compile();
 
@@ -25,17 +29,96 @@ describe('CohortResolver (Cohort Creation)', () => {
     cohortServiceMock.createCohort.mockResolvedValue({ id: 'cohort-1' } as any);
     
     // user comes from CurrentUser decorator
-    const user = { id: 'admin-1', tenants: [{ tenantId: 'tenant-1', role: 'SUPER_ADMIN' }] };
+    const user = { userId: 'admin-1', tenants: [{ tenantId: 'tenant-1', role: 'SUPER_ADMIN' }] };
 
-    const result = await resolver.createCohort(user, 'Math 101', '1234', 6, 25);
+    const startDate = new Date('2026-08-01T00:00:00Z');
+    const endDate = new Date('2026-11-01T00:00:00Z');
+
+    const result = await resolver.createCohort(user, 'Math 101', '1234', startDate.toISOString(), endDate.toISOString());
     
     expect(cohortServiceMock.createCohort).toHaveBeenCalledWith(
-      'tenant-1',
+      'admin-1',
       'Math 101',
       '1234',
-      6,
-      25
+      startDate,
+      endDate
     );
-    expect(result).toEqual('cohort-1');
+  });
+
+  it('COHORT-01: createCohortSession delegates to CohortService', async () => {
+    cohortServiceMock.createCohortSession.mockResolvedValue({ id: 's1' } as any);
+    
+    const result = await resolver.createCohortSession('c1', 'Morning', '09:00', 15, ['EVERYDAY'], 50);
+    
+    expect(cohortServiceMock.createCohortSession).toHaveBeenCalledWith('c1', 'Morning', '09:00', 15, ['EVERYDAY'], 50);
+    expect(result).toEqual('s1');
+  });
+
+  it('COHORT-00: createCohort delegates to CohortService', async () => {
+    cohortServiceMock.createCohort.mockResolvedValue({ id: 'c1' } as any);
+    
+    const startDate = new Date('2026-08-01T00:00:00Z');
+    const endDate = new Date('2026-11-01T00:00:00Z');
+
+    const result = await resolver.createCohort({ userId: 'u1' }, 'Test Cohort', '1234', startDate.toISOString(), endDate.toISOString());
+    
+    expect(cohortServiceMock.createCohort).toHaveBeenCalledWith('u1', 'Test Cohort', '1234', startDate, endDate);
+    expect(result).toEqual('c1');
+  });
+
+  it('COHORT-02: updateCohortSession delegates to CohortService', async () => {
+    cohortServiceMock.updateCohortSession.mockResolvedValue({ id: 's1' } as any);
+    
+    const result = await resolver.updateCohortSession('s1', 'New Name', undefined, 20, undefined, 75);
+    
+    expect(cohortServiceMock.updateCohortSession).toHaveBeenCalledWith(
+      's1',
+      'New Name',
+      undefined,
+      20,
+      undefined,
+      75
+    );
+    expect(result).toEqual('s1');
+  });
+
+  it('COHORT-03: deleteCohortSession delegates to CohortService', async () => {
+    cohortServiceMock.deleteCohortSession.mockResolvedValue(true);
+    
+    const result = await resolver.deleteCohortSession('s1');
+    
+    expect(cohortServiceMock.deleteCohortSession).toHaveBeenCalledWith('s1');
+    expect(result).toEqual(true);
+  });
+
+  it('COHORT-04: joinedSession delegates to CohortService', async () => {
+    cohortServiceMock.getJoinedSession = jest.fn().mockResolvedValue({ id: 's1', name: 'Morning' } as any);
+    
+    const user = { userId: 'student-1' };
+    const cohort = { id: 'c1' } as any;
+
+    const result = await resolver.joinedSession(cohort, user);
+    
+    expect(cohortServiceMock.getJoinedSession).toHaveBeenCalledWith('student-1', 'c1');
+    expect(result).toEqual({ id: 's1', name: 'Morning' });
+  });
+
+  it('COHORT-05: joinedSession returns null if no user', async () => {
+    const cohort = { id: 'c1' } as any;
+
+    const result = await resolver.joinedSession(cohort, null);
+    
+    expect(result).toBeNull();
+  });
+
+  it('COHORT-06: joinCohort delegates to CohortService', async () => {
+    cohortServiceMock.joinCohort = jest.fn().mockResolvedValue(true);
+    
+    const user = { userId: 'student-1' };
+    
+    const result = await resolver.joinCohort(user, 'c1', 's1', '1234');
+    
+    expect(cohortServiceMock.joinCohort).toHaveBeenCalledWith('student-1', 'c1', 's1', '1234');
+    expect(result).toEqual(true);
   });
 });

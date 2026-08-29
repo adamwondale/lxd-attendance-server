@@ -15,14 +15,25 @@ type AuthResponse {
 }
 
 type Cohort {
-  durationMonths: Int!
+  endDate: DateTime!
   id: ID!
   isActive: Boolean!
-  latePenaltyAmount: Int!
+  joinedSession: CohortSession
   name: String!
   pin: String!
+  sessions: [CohortSession!]
   startDate: DateTime!
   tenantId: String!
+}
+
+type CohortSession {
+  cohortId: String!
+  gracePeriodMinutes: Int!
+  id: ID!
+  latePenaltyAmount: Int!
+  name: String!
+  recurrenceDays: [String!]!
+  startTime: String!
 }
 
 type DashboardMetrics {
@@ -41,14 +52,19 @@ type Mutation {
   adminLogAttendance(sessionId: String!, studentId: String!): String!
   adminScanStudentBadge(badgeCode: String!, sessionId: String!): String!
   adminUpdateStudent(email: String, id: String!, name: String): User!
-  createCohort(durationMonths: Int!, latePenaltyAmount: Int!, name: String!, pin: String!): String!
-  joinCohort(cohortId: String!, pin: String!): Boolean!
+  createCohort(endDate: String!, name: String!, pin: String!, startDate: String!): String!
+  createCohortSession(cohortId: String!, gracePeriodMinutes: Int!, latePenaltyAmount: Int!, name: String!, recurrenceDays: [String!]!, startTime: String!): String!
+  deleteCohort(cohortId: String!): Boolean!
+  deleteCohortSession(sessionId: String!): Boolean!
+  joinCohort(cohortId: String!, pin: String!, sessionId: String!): Boolean!
   logAttendance(qrCode: String!): String!
   loginAdmin(email: String!, password: String!): AuthResponse!
   loginStudent(identifier: String!, password: String!): AuthResponse!
   loginWithGoogle(idToken: String!): AuthResponse!
   registerAdmin(email: String!, name: String!, password: String!, tenantName: String!): String!
   registerStudent(email: String!, name: String!, password: String!, phone: String!, username: String!): String!
+  updateCohort(cohortId: String!, endDate: String, isActive: Boolean, name: String, pin: String, startDate: String): String!
+  updateCohortSession(gracePeriodMinutes: Int, latePenaltyAmount: Int, name: String, recurrenceDays: [String!], sessionId: String!, startTime: String): String!
   updateProfile(name: String, username: String): User!
   waivePenalty(penaltyId: String!): Penalty!
 }
@@ -63,8 +79,8 @@ type Query {
   availableCohorts: [Cohort!]!
   cohortDetails(id: String!): Cohort
   dashboardMetrics: DashboardMetrics!
-  generateSessionQr(sessionId: String!): String!
-  getAttendanceLogs(cohortId: String): [AttendanceLog!]!
+  generateCohortQr(cohortId: String!): String!
+  getAttendanceLogs(cohortId: String, sessionId: String): [AttendanceLog!]!
   listCohorts: [Cohort!]!
   listStudents: [User!]!
   me: User!
@@ -74,7 +90,7 @@ type Query {
 }
 
 type Subscription {
-  attendanceLogged(sessionId: String!): String!
+  attendanceLogged(cohortId: String!): String!
   onAttendanceUpdated: Boolean!
   onCohortsUpdated: Boolean!
   onStudentsUpdated: Boolean!

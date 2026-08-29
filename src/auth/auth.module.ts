@@ -13,7 +13,6 @@ import { PrismaModule } from '../prisma/prisma.module';
     PrismaModule,
     JwtModule.register({
       secret: 'QtNDNr4Ii0x1Zaqw8geuV1ZE1wxhSqOSMCH9URZIXwS',
-      signOptions: { expiresIn: '1h' },
     }),
   ],
   providers: [JwtStrategy, GqlAuthGuard, AuthService, AuthResolver],

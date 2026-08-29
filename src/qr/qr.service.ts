@@ -5,9 +5,9 @@ import * as crypto from 'crypto';
 export class QrService {
   private readonly secret = 'QtNDNr4Ii0x1Zaqw8geuV1ZE1wxhSqOSMCH9URZIXwS';
 
-  generateQr(sessionId: string): string {
+  generateQr(cohortId: string): string {
     const timestamp = Date.now();
-    const data = `${sessionId}.${timestamp}`;
+    const data = `${cohortId}.${timestamp}`;
     const signature = crypto
       .createHmac('sha256', this.secret)
       .update(data)
@@ -16,21 +16,21 @@ export class QrService {
     return `${data}.${signature}`;
   }
 
-  verifyQr(code: string, sessionId: string): boolean {
+  verifyQr(code: string, cohortId: string): boolean {
     const parts = code.split('.');
     if (parts.length !== 3) {
       throw new BadRequestException('Invalid QR code format');
     }
 
-    const [extractedSessionId, timestampStr, signature] = parts;
+    const [extractedCohortId, timestampStr, signature] = parts;
     const timestamp = parseInt(timestampStr, 10);
 
-    if (extractedSessionId !== sessionId) {
-      throw new BadRequestException('Session ID mismatch');
+    if (extractedCohortId !== cohortId) {
+      throw new BadRequestException('Cohort ID mismatch');
     }
 
     // Verify signature
-    const data = `${extractedSessionId}.${timestamp}`;
+    const data = `${extractedCohortId}.${timestamp}`;
     const expectedSignature = crypto
       .createHmac('sha256', this.secret)
       .update(data)

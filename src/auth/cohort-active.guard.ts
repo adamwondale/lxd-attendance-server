@@ -29,10 +29,8 @@ export class CohortActiveGuard implements CanActivate {
       throw new ForbiddenException('COHORT_CYCLE_COMPLETED');
     }
 
-    // Expiration = startDate + (durationMonths * 30 days)
-    const expirationTime = cohort.startDate.getTime() + (cohort.durationMonths * 30 * 24 * 60 * 60 * 1000);
-    
-    if (Date.now() > expirationTime) {
+    // Check if the cohort's end date has passed
+    if (new Date() > cohort.endDate) {
       throw new ForbiddenException('COHORT_CYCLE_COMPLETED');
     }
 

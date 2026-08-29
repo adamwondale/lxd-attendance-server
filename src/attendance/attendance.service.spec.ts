@@ -45,12 +45,16 @@ describe('AttendanceService (ATTEND tests)', () => {
     id: sessionId,
     startTime: '09:00',
     gracePeriodMinutes: 5,
+    recurrenceDays: ['EVERYDAY'],
   };
 
   beforeEach(() => {
     prismaMock.cohortSession.findUnique.mockResolvedValue({
       ...mockSessionBase,
       cohort: { latePenaltyAmount: 25 },
+    } as any);
+    prismaMock.cohortMembership.findUnique.mockResolvedValue({
+      sessionId,
     } as any);
   });
 
@@ -68,6 +72,14 @@ describe('AttendanceService (ATTEND tests)', () => {
       expect(result).toEqual(mockLog);
     });
 
+    it('ATTEND-01b: Throws BadRequestException if session does not exist (No Demo Fallback)', async () => {
+      qrServiceMock.verifyQr.mockReturnValue(true);
+      prismaMock.cohortSession.findUnique.mockResolvedValue(null); // Simulate session not found
+
+      await expect(service.logAttendance(userId, validQr)).rejects.toThrow(BadRequestException);
+      expect(prismaMock.cohort.findUnique).not.toHaveBeenCalled(); // Ensure fallback is completely removed
+    });
+
     it('ATTEND-04: Duplicate scan (P2002) is handled gracefully', async () => {
       qrServiceMock.verifyQr.mockReturnValue(true);
       
@@ -82,16 +94,19 @@ describe('AttendanceService (ATTEND tests)', () => {
 
       expect(result).toEqual(mockLog);
       expect(prismaMock.attendanceLog.findUnique).toHaveBeenCalledWith({
-        where: { sessionId_userId: { sessionId, userId } },
+        where: { sessionId_userId_date: { sessionId, userId, date: expect.any(String) } },
       });
     });
   });
 
   describe('Lateness Penalty Engine (Phase 5)', () => {
     const mockSessionBase = {
-      id: sessionId,
-      startTime: '09:00',
-      gracePeriodMinutes: 5,
+        id: sessionId,
+        startTime: '09:00',
+        gracePeriodMinutes: 5,
+        recurrenceDays: ['EVERYDAY'],
+        latePenaltyAmount: 25,
+        cohort: { tenantId: 'tenant1' },
     };
 
     beforeEach(() => {
@@ -160,7 +175,8 @@ describe('AttendanceService (ATTEND tests)', () => {
 
       prismaMock.cohortSession.findUnique.mockResolvedValue({
         ...mockSessionBase,
-        cohort: { latePenaltyAmount: 0 },
+        latePenaltyAmount: 0,
+        cohort: { tenantId: 'tenant1' },
       } as any);
       
       prismaMock.attendanceLog.create.mockResolvedValue({ ...mockLog, id: 'log-free', isLate: true } as any);
@@ -187,6 +203,21 @@ describe('AttendanceService (ATTEND tests)', () => {
         data: expect.objectContaining({ sessionId, userId }),
       });
       expect(result).toEqual(mockLog);
+    });
+  });
+
+  describe('getAttendanceLogs', () => {
+    it('ATTEND-05: Can filter logs by sessionId', async () => {
+      prismaMock.attendanceLog.findMany.mockResolvedValue([mockLog as any]);
+
+      const result = await service.getAttendanceLogs(undefined, 'session-123');
+
+      expect(prismaMock.attendanceLog.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { sessionId: 'session-123' },
+        })
+      );
+      expect(result).toEqual([mockLog]);
     });
   });
 });

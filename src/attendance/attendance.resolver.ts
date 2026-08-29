@@ -17,9 +17,10 @@ export class AttendanceResolver {
   @Query(() => [AttendanceLog])
   @UseGuards(GqlAuthGuard, RolesGuard)
   async getAttendanceLogs(
-    @Args('cohortId', { nullable: true }) cohortId?: string
+    @Args('cohortId', { nullable: true }) cohortId?: string,
+    @Args('sessionId', { nullable: true }) sessionId?: string
   ) {
-    return this.attendanceService.getAttendanceLogs(cohortId);
+    return this.attendanceService.getAttendanceLogs(cohortId, sessionId);
   }
 
   @Mutation(() => Penalty)
@@ -33,9 +34,11 @@ export class AttendanceResolver {
   @Mutation(() => String) // We will return string just to mock the schema type
   @UseGuards(GqlAuthGuard)
   async logAttendance(@CurrentUser() user: any, @Args('qrCode') qrCode: string) {
+    const parts = qrCode.split('.');
+    const cohortId = parts[0];
     const log = await this.attendanceService.logAttendance(user.userId, qrCode);
     if (log) {
-      this.pubSub.publish('attendanceLogged', { attendanceLogged: log.id });
+      this.pubSub.publish('attendanceLogged', { attendanceLogged: { cohortId, logId: log.id } });
       this.pubSub.publish('attendanceUpdated', { onAttendanceUpdated: true });
     }
     return log.id;
@@ -49,7 +52,6 @@ export class AttendanceResolver {
   ) {
     const log = await this.attendanceService.adminLogAttendance(studentId, sessionId);
     if (log) {
-      this.pubSub.publish('attendanceLogged', { attendanceLogged: log.id });
       this.pubSub.publish('attendanceUpdated', { onAttendanceUpdated: true });
     }
     return log.id;
@@ -63,16 +65,16 @@ export class AttendanceResolver {
   ) {
     const log = await this.attendanceService.adminScanStudentBadge(badgeCode, sessionId);
     if (log) {
-      this.pubSub.publish('attendanceLogged', { attendanceLogged: log.id });
       this.pubSub.publish('attendanceUpdated', { onAttendanceUpdated: true });
     }
     return log.id;
   }
 
   @Subscription(() => String, {
-    filter: (payload, variables) => payload.attendanceLogged.sessionId === variables.sessionId,
+    filter: (payload, variables) => payload.attendanceLogged.cohortId === variables.cohortId,
+    resolve: (payload) => payload.attendanceLogged.logId,
   })
-  attendanceLogged(@Args('sessionId') sessionId: string) {
+  attendanceLogged(@Args('cohortId') cohortId: string) {
     return (this.pubSub as any).asyncIterableIterator('attendanceLogged');
   }
 

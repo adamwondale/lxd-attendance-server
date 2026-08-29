@@ -178,6 +178,7 @@ export class CohortService {
           none: { userId }
         }
       },
+      include: { sessions: true },
       orderBy: { startDate: 'desc' }
     });
   }
@@ -186,7 +187,11 @@ export class CohortService {
     // Return all cohorts the user IS a member of
     const memberships = await this.prisma.cohortMembership.findMany({
       where: { userId, status: 'ACTIVE' },
-      include: { cohort: true },
+      include: { 
+        cohort: {
+          include: { sessions: true }
+        } 
+      },
       orderBy: { joinedAt: 'desc' }
     });
     return memberships.map(m => m.cohort);

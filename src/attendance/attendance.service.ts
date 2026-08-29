@@ -36,9 +36,41 @@ export class AttendanceService {
     return this.processAttendance(studentId, sessionId);
   }
 
-  async adminScanStudentBadge(badgeCode: string, sessionId: string) {
+  async adminScanStudentBadge(badgeCode: string) {
     const studentId = this.qrService.verifyStudentQr(badgeCode);
-    return this.processAttendance(studentId, sessionId);
+    
+    // Auto-detect the student's active session for today.
+    // They should have an active CohortMembership.
+    const memberships = await this.prisma.cohortMembership.findMany({
+      where: { userId: studentId, status: 'ACTIVE' },
+      include: { session: true }
+    });
+
+    if (memberships.length === 0) {
+      throw new BadRequestException('Student is not enrolled in any active cohorts.');
+    }
+
+    const now = new Date();
+    const dayNames = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
+    const currentDay = dayNames[now.getDay()];
+
+    // Find a session that runs today
+    const activeMembershipToday = memberships.find(m => {
+      const session = m.session;
+      if (!session) return false;
+      if (session.recurrenceDays.length === 0 || session.recurrenceDays.includes("EVERYDAY")) return true;
+      return session.recurrenceDays.includes(currentDay);
+    });
+
+    if (!activeMembershipToday || !activeMembershipToday.sessionId) {
+      // Fallback to the first active membership if no specific session is scheduled today
+      // This is helpful for testing or one-off events
+      const fallback = memberships[0];
+      if (!fallback.sessionId) throw new BadRequestException('Student membership has no assigned session.');
+      return this.processAttendance(studentId, fallback.sessionId);
+    }
+
+    return this.processAttendance(studentId, activeMembershipToday.sessionId);
   }
 
   private async processAttendance(userId: string, sessionId: string) {

@@ -17,19 +17,21 @@ export class AttendanceService {
     }
     const cohortId = parts[0];
 
-    // Verify cryptographic window (15-seconds sliding window)
+    // 1. Fast HMAC Verification & 15-second Sliding Window
+    // Throws exception immediately if tampered or expired
     this.qrService.verifyQr(qrCode, cohortId);
 
-    // Find student's session via membership
+    // 2. Query Consolidation: fetch membership and session in one go
     const membership = await this.prisma.cohortMembership.findUnique({
-      where: { cohortId_userId: { cohortId, userId } }
+      where: { cohortId_userId: { cohortId, userId } },
+      include: { session: { include: { cohort: true } } }
     });
 
-    if (!membership || !membership.sessionId) {
+    if (!membership || !membership.session) {
       throw new BadRequestException('You are not enrolled in any session for this cohort');
     }
 
-    return this.processAttendance(userId, membership.sessionId);
+    return this.processAttendance(userId, membership.sessionId, membership.session);
   }
 
   async adminLogAttendance(studentId: string, sessionId: string) {
@@ -40,10 +42,9 @@ export class AttendanceService {
     const studentId = this.qrService.verifyStudentQr(badgeCode);
     
     // Auto-detect the student's active session for today.
-    // They should have an active CohortMembership.
     const memberships = await this.prisma.cohortMembership.findMany({
       where: { userId: studentId, status: 'ACTIVE' },
-      include: { session: true }
+      include: { session: { include: { cohort: true } } }
     });
 
     if (memberships.length === 0) {
@@ -54,7 +55,6 @@ export class AttendanceService {
     const dayNames = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
     const currentDay = dayNames[now.getDay()];
 
-    // Find a session that runs today
     const activeMembershipToday = memberships.find(m => {
       const session = m.session;
       if (!session) return false;
@@ -62,19 +62,28 @@ export class AttendanceService {
       return session.recurrenceDays.includes(currentDay);
     });
 
-    if (!activeMembershipToday || !activeMembershipToday.sessionId) {
-      // Fallback to the first active membership if no specific session is scheduled today
-      // This is helpful for testing or one-off events
+    if (!activeMembershipToday || !activeMembershipToday.session) {
       const fallback = memberships[0];
-      if (!fallback.sessionId) throw new BadRequestException('Student membership has no assigned session.');
-      return this.processAttendance(studentId, fallback.sessionId);
+      if (!fallback.session) throw new BadRequestException('Student membership has no assigned session.');
+      return this.processAttendance(studentId, fallback.sessionId, fallback.session);
     }
 
-    return this.processAttendance(studentId, activeMembershipToday.sessionId);
+    return this.processAttendance(studentId, activeMembershipToday.sessionId, activeMembershipToday.session);
   }
 
-  private async processAttendance(userId: string, sessionId: string) {
-    const session = await this.prisma.cohortSession.findUnique({
+  private async processAttendance(userId: string, sessionId: string, preloadedSession?: any) {
+    const now = new Date();
+    const dateStr = now.toISOString().split('T')[0];
+
+    // 3. The "Read-Before-Write" Pattern
+    // Extremely fast lookup on compound unique index before trying to write.
+    const existingLog = await this.prisma.attendanceLog.findUnique({
+      where: { sessionId_userId_date: { sessionId, userId, date: dateStr } }
+    });
+
+    if (existingLog) return existingLog;
+
+    const session = preloadedSession || await this.prisma.cohortSession.findUnique({
       where: { id: sessionId },
       include: { cohort: true },
     });
@@ -83,25 +92,20 @@ export class AttendanceService {
       throw new BadRequestException('Session not found');
     }
 
-    const now = new Date();
-    // Create Date string e.g. "2026-08-29"
-    const dateStr = now.toISOString().split('T')[0];
-
-    // We can also check if the session runs today using recurrenceDays
     const dayNames = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
     const currentDay = dayNames[now.getDay()];
     
-    if (session.recurrenceDays.length > 0 && !session.recurrenceDays.includes("EVERYDAY") && !session.recurrenceDays.includes(currentDay)) {
+    if (session.recurrenceDays && session.recurrenceDays.length > 0 && !session.recurrenceDays.includes("EVERYDAY") && !session.recurrenceDays.includes(currentDay)) {
       throw new BadRequestException(`This session does not run on ${currentDay}`);
     }
 
     const [hours, minutes] = session.startTime.split(':').map(Number);
-    
     const sessionTimeUtc = new Date(now);
     sessionTimeUtc.setUTCHours(hours - 3, minutes + session.gracePeriodMinutes, 0, 0);
 
     const isLate = now.getTime() > sessionTimeUtc.getTime();
 
+    // The rare race condition (if they scan on two devices simultaneously) is caught by Prisma exception
     try {
       const log = await this.prisma.attendanceLog.create({
         data: {
@@ -124,10 +128,7 @@ export class AttendanceService {
 
       return log;
     } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      ) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         const existing = await this.prisma.attendanceLog.findUnique({
           where: { sessionId_userId_date: { sessionId, userId, date: dateStr } },
         });
@@ -157,7 +158,7 @@ export class AttendanceService {
       orderBy: {
         scannedAt: 'desc'
       },
-      take: 200 // reasonable limit for demo
+      take: 200
     });
   }
 

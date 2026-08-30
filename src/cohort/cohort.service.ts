@@ -104,6 +104,7 @@ export class CohortService {
     return this.prisma.cohort.findMany({
       where: { tenantId, isActive: true },
       orderBy: { startDate: 'desc' },
+      include: { sessions: true },
     });
   }
 

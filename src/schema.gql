@@ -26,6 +26,16 @@ type Cohort {
   tenantId: String!
 }
 
+type CohortMembership {
+  cohort: Cohort
+  cohortId: String!
+  id: ID!
+  session: CohortSession
+  sessionId: String
+  status: String!
+  userId: String!
+}
+
 type CohortSession {
   cohortId: String!
   gracePeriodMinutes: Int!
@@ -49,9 +59,12 @@ scalar DateTime
 
 type Mutation {
   adminDeleteStudent(id: String!): Boolean!
+  adminEnrollStudent(cohortId: String!, sessionId: String!, userId: String!): Boolean!
   adminLogAttendance(sessionId: String!, studentId: String!): String!
+  adminRemoveStudentFromCohort(cohortId: String!, userId: String!): Boolean!
   adminScanStudentBadge(badgeCode: String!): String!
   adminUpdateStudent(email: String, id: String!, name: String): User!
+  adminUpdateStudentMembership(cohortId: String!, sessionId: String!, userId: String!): Boolean!
   createCohort(endDate: String!, name: String!, pin: String!, startDate: String!): String!
   createCohortSession(cohortId: String!, gracePeriodMinutes: Int!, latePenaltyAmount: Int!, name: String!, recurrenceDays: [String!]!, startTime: String!): String!
   deleteCohort(cohortId: String!): Boolean!
@@ -99,6 +112,7 @@ type Subscription {
 type User {
   email: String!
   id: ID!
+  memberships: [CohortMembership!]
   name: String!
   phone: String
   username: String

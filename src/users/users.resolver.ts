@@ -1,4 +1,5 @@
-import { Resolver, Query, Mutation, Args, Subscription } from '@nestjs/graphql';
+import { Resolver, Query, Mutation, Args, Subscription, ResolveField, Parent } from '@nestjs/graphql';
+import { CohortMembership } from '../cohort/dto/cohort.type';
 import { UseGuards, Inject } from '@nestjs/common';
 import { PubSub } from 'graphql-subscriptions';
 import { GqlAuthGuard } from '../auth/jwt-auth.guard';
@@ -58,8 +59,48 @@ export class UsersResolver {
     return deleted;
   }
 
+  @Mutation(() => Boolean)
+  @UseGuards(GqlAuthGuard, RolesGuard)
+  async adminEnrollStudent(
+    @Args('userId') userId: string,
+    @Args('cohortId') cohortId: string,
+    @Args('sessionId') sessionId: string,
+  ) {
+    await this.usersService.adminEnrollStudent(userId, cohortId, sessionId);
+    this.pubSub.publish('studentsUpdated', { onStudentsUpdated: true });
+    return true;
+  }
+
+  @Mutation(() => Boolean)
+  @UseGuards(GqlAuthGuard, RolesGuard)
+  async adminUpdateStudentMembership(
+    @Args('userId') userId: string,
+    @Args('cohortId') cohortId: string,
+    @Args('sessionId') sessionId: string,
+  ) {
+    await this.usersService.adminUpdateStudentMembership(userId, cohortId, sessionId);
+    this.pubSub.publish('studentsUpdated', { onStudentsUpdated: true });
+    return true;
+  }
+
+  @Mutation(() => Boolean)
+  @UseGuards(GqlAuthGuard, RolesGuard)
+  async adminRemoveStudentFromCohort(
+    @Args('userId') userId: string,
+    @Args('cohortId') cohortId: string,
+  ) {
+    await this.usersService.adminRemoveStudentFromCohort(userId, cohortId);
+    this.pubSub.publish('studentsUpdated', { onStudentsUpdated: true });
+    return true;
+  }
+
   @Subscription(() => Boolean)
   onStudentsUpdated() {
     return this.pubSub.asyncIterableIterator('studentsUpdated');
+  }
+
+  @ResolveField('memberships', () => [CohortMembership], { nullable: true })
+  async memberships(@Parent() user: User) {
+    return this.usersService.getMemberships(user.id);
   }
 }

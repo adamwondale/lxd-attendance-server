@@ -54,4 +54,51 @@ export class UsersService {
     // Optionally we could delete the user if they have no other roles, but keeping it safe for the demo.
     return true;
   }
+
+  async adminEnrollStudent(userId: string, cohortId: string, sessionId: string) {
+    return this.prisma.cohortMembership.create({
+      data: {
+        userId,
+        cohortId,
+        sessionId,
+        status: 'ACTIVE',
+      },
+    });
+  }
+
+  async adminUpdateStudentMembership(userId: string, cohortId: string, sessionId: string) {
+    return this.prisma.cohortMembership.update({
+      where: {
+        cohortId_userId: {
+          cohortId,
+          userId,
+        },
+      },
+      data: {
+        sessionId,
+      },
+    });
+  }
+
+  async adminRemoveStudentFromCohort(userId: string, cohortId: string) {
+    await this.prisma.cohortMembership.delete({
+      where: {
+        cohortId_userId: {
+          cohortId,
+          userId,
+        },
+      },
+    });
+    return true;
+  }
+
+  async getMemberships(userId: string) {
+    return this.prisma.cohortMembership.findMany({
+      where: { userId },
+      include: {
+        cohort: true,
+        session: true,
+      }
+    });
+  }
 }

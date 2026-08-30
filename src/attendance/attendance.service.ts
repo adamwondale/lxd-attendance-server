@@ -31,7 +31,7 @@ export class AttendanceService {
       throw new BadRequestException('You are not enrolled in any session for this cohort');
     }
 
-    return this.processAttendance(userId, membership.sessionId, membership.session);
+    return this.processAttendance(userId, membership.sessionId!, membership.session);
   }
 
   async adminLogAttendance(studentId: string, sessionId: string) {
@@ -65,10 +65,10 @@ export class AttendanceService {
     if (!activeMembershipToday || !activeMembershipToday.session) {
       const fallback = memberships[0];
       if (!fallback.session) throw new BadRequestException('Student membership has no assigned session.');
-      return this.processAttendance(studentId, fallback.sessionId, fallback.session);
+      return this.processAttendance(studentId, fallback.sessionId!, fallback.session);
     }
 
-    return this.processAttendance(studentId, activeMembershipToday.sessionId, activeMembershipToday.session);
+    return this.processAttendance(studentId, activeMembershipToday.sessionId!, activeMembershipToday.session);
   }
 
   private async processAttendance(userId: string, sessionId: string, preloadedSession?: any) {

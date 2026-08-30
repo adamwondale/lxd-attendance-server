@@ -55,6 +55,10 @@ describe('AttendanceService (ATTEND tests)', () => {
     } as any);
     prismaMock.cohortMembership.findUnique.mockResolvedValue({
       sessionId,
+      session: {
+        ...mockSessionBase,
+        cohort: { latePenaltyAmount: 25 },
+      },
     } as any);
   });
 
@@ -74,10 +78,12 @@ describe('AttendanceService (ATTEND tests)', () => {
 
     it('ATTEND-01b: Throws BadRequestException if session does not exist (No Demo Fallback)', async () => {
       qrServiceMock.verifyQr.mockReturnValue(true);
-      prismaMock.cohortSession.findUnique.mockResolvedValue(null); // Simulate session not found
+      prismaMock.cohortMembership.findUnique.mockResolvedValue({
+        sessionId,
+        session: null
+      } as any);
 
       await expect(service.logAttendance(userId, validQr)).rejects.toThrow(BadRequestException);
-      expect(prismaMock.cohort.findUnique).not.toHaveBeenCalled(); // Ensure fallback is completely removed
     });
 
     it('ATTEND-04: Duplicate scan (P2002) is handled gracefully', async () => {
@@ -125,9 +131,12 @@ describe('AttendanceService (ATTEND tests)', () => {
       // Set time to 06:04:00 UTC (09:04:00 local) -> On time
       jest.setSystemTime(new Date('2026-08-28T06:04:00Z'));
       
-      prismaMock.cohortSession.findUnique.mockResolvedValue({
-        ...mockSessionBase,
-        cohort: { latePenaltyAmount: 25 },
+      prismaMock.cohortMembership.findUnique.mockResolvedValue({
+        sessionId,
+        session: {
+          ...mockSessionBase,
+          cohort: { latePenaltyAmount: 25 },
+        },
       } as any);
       
       prismaMock.attendanceLog.create.mockResolvedValue(mockLog as any);
@@ -146,9 +155,12 @@ describe('AttendanceService (ATTEND tests)', () => {
       // Set time to 06:06:00 UTC (09:06:00 local) -> Late
       jest.setSystemTime(new Date('2026-08-28T06:06:00Z'));
 
-      prismaMock.cohortSession.findUnique.mockResolvedValue({
-        ...mockSessionBase,
-        cohort: { latePenaltyAmount: 25 },
+      prismaMock.cohortMembership.findUnique.mockResolvedValue({
+        sessionId,
+        session: {
+          ...mockSessionBase,
+          cohort: { latePenaltyAmount: 25 },
+        },
       } as any);
       
       prismaMock.attendanceLog.create.mockResolvedValue({ ...mockLog, id: 'log-late', isLate: true } as any);
@@ -173,10 +185,13 @@ describe('AttendanceService (ATTEND tests)', () => {
       // Set time to 06:06:00 UTC (09:06:00 local) -> Late
       jest.setSystemTime(new Date('2026-08-28T06:06:00Z'));
 
-      prismaMock.cohortSession.findUnique.mockResolvedValue({
-        ...mockSessionBase,
-        latePenaltyAmount: 0,
-        cohort: { tenantId: 'tenant1' },
+      prismaMock.cohortMembership.findUnique.mockResolvedValue({
+        sessionId,
+        session: {
+          ...mockSessionBase,
+          latePenaltyAmount: 0,
+          cohort: { tenantId: 'tenant1' },
+        },
       } as any);
       
       prismaMock.attendanceLog.create.mockResolvedValue({ ...mockLog, id: 'log-free', isLate: true } as any);

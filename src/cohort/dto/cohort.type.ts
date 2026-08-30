@@ -46,6 +46,15 @@ export class CohortSession {
 
   @Field(() => Int)
   latePenaltyAmount: number;
+
+  @Field(() => Int)
+  escalationThresholdMinutes: number;
+
+  @Field(() => Int)
+  escalationRate: number;
+
+  @Field(() => Int)
+  escalationIntervalMinutes: number;
 }
 
 @ObjectType()
@@ -70,6 +79,9 @@ export class Cohort {
 
   @Field()
   isActive: boolean;
+
+  @Field(() => Int, { nullable: true })
+  durationMonths?: number;
 
   @Field(() => [CohortSession], { nullable: true })
   sessions?: CohortSession[];

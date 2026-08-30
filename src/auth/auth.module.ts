@@ -12,7 +12,7 @@ import { PrismaModule } from '../prisma/prisma.module';
     PassportModule,
     PrismaModule,
     JwtModule.register({
-      secret: 'QtNDNr4Ii0x1Zaqw8geuV1ZE1wxhSqOSMCH9URZIXwS',
+      secret: process.env.JWT_SECRET || 'QtNDNr4Ii0x1Zaqw8geuV1ZE1wxhSqOSMCH9URZIXwS',
     }),
   ],
   providers: [JwtStrategy, GqlAuthGuard, AuthService, AuthResolver],

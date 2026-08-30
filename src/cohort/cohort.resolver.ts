@@ -2,11 +2,12 @@ import { Resolver, Mutation, Query, Args, Int, Subscription, ResolveField, Paren
 import { UseGuards, Inject } from '@nestjs/common';
 import { PubSub } from 'graphql-subscriptions';
 import { Cohort, CohortSession } from './dto/cohort.type';
-import { DashboardMetrics } from './dto/dashboard.type';
+import { DashboardMetrics, CompanyProfile } from './dto/dashboard.type';
 import { CohortService } from './cohort.service';
 import { GqlAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
+import { Roles } from '../auth/roles.decorator';
 
 @Resolver(() => Cohort)
 export class CohortResolver {
@@ -17,19 +18,22 @@ export class CohortResolver {
 
   @Mutation(() => String) 
   @UseGuards(GqlAuthGuard, RolesGuard)
+  @Roles('COORDINATOR', 'SUPER_ADMIN', 'ADMIN')
   async createCohort(
     @CurrentUser() user: any,
     @Args('name') name: string,
     @Args('pin') pin: string,
     @Args('startDate') startDate: string,
     @Args('endDate') endDate: string,
+    @Args('durationMonths', { type: () => Int, nullable: true }) durationMonths?: number,
   ) {
     const cohort = await this.cohortService.createCohort(
       user.userId,
       name,
       pin,
       new Date(startDate),
-      new Date(endDate)
+      new Date(endDate),
+      durationMonths
     );
     this.pubSub.publish('cohortsUpdated', { onCohortsUpdated: true });
     return cohort.id;
@@ -37,6 +41,7 @@ export class CohortResolver {
 
   @Mutation(() => String)
   @UseGuards(GqlAuthGuard, RolesGuard)
+  @Roles('COORDINATOR', 'SUPER_ADMIN', 'ADMIN')
   async updateCohort(
     @Args('cohortId') cohortId: string,
     @Args('name', { nullable: true }) name?: string,
@@ -44,6 +49,7 @@ export class CohortResolver {
     @Args('startDate', { nullable: true }) startDate?: string,
     @Args('endDate', { nullable: true }) endDate?: string,
     @Args('isActive', { nullable: true }) isActive?: boolean,
+    @Args('durationMonths', { type: () => Int, nullable: true }) durationMonths?: number,
   ) {
     const cohort = await this.cohortService.updateCohort(
       cohortId,
@@ -51,7 +57,8 @@ export class CohortResolver {
       pin,
       startDate ? new Date(startDate) : undefined,
       endDate ? new Date(endDate) : undefined,
-      isActive
+      isActive,
+      durationMonths
     );
     this.pubSub.publish('cohortsUpdated', { onCohortsUpdated: true });
     return cohort.id;
@@ -59,6 +66,7 @@ export class CohortResolver {
 
   @Mutation(() => Boolean)
   @UseGuards(GqlAuthGuard, RolesGuard)
+  @Roles('COORDINATOR', 'SUPER_ADMIN', 'ADMIN')
   async deleteCohort(
     @Args('cohortId') cohortId: string,
   ) {
@@ -71,6 +79,7 @@ export class CohortResolver {
 
   @Mutation(() => String)
   @UseGuards(GqlAuthGuard, RolesGuard)
+  @Roles('COORDINATOR', 'SUPER_ADMIN', 'ADMIN')
   async createCohortSession(
     @Args('cohortId') cohortId: string,
     @Args('name') name: string,
@@ -78,6 +87,9 @@ export class CohortResolver {
     @Args('gracePeriodMinutes', { type: () => Int }) gracePeriodMinutes: number,
     @Args('recurrenceDays', { type: () => [String] }) recurrenceDays: string[],
     @Args('latePenaltyAmount', { type: () => Int }) latePenaltyAmount: number,
+    @Args('escalationThresholdMinutes', { type: () => Int, nullable: true }) escalationThresholdMinutes?: number,
+    @Args('escalationRate', { type: () => Int, nullable: true }) escalationRate?: number,
+    @Args('escalationIntervalMinutes', { type: () => Int, nullable: true }) escalationIntervalMinutes?: number,
   ) {
     const session = await this.cohortService.createCohortSession(
       cohortId,
@@ -85,7 +97,10 @@ export class CohortResolver {
       startTime,
       gracePeriodMinutes,
       recurrenceDays,
-      latePenaltyAmount
+      latePenaltyAmount,
+      escalationThresholdMinutes,
+      escalationRate,
+      escalationIntervalMinutes
     );
     this.pubSub.publish('cohortsUpdated', { onCohortsUpdated: true });
     return session.id;
@@ -93,6 +108,7 @@ export class CohortResolver {
 
   @Mutation(() => String)
   @UseGuards(GqlAuthGuard, RolesGuard)
+  @Roles('COORDINATOR', 'SUPER_ADMIN', 'ADMIN')
   async updateCohortSession(
     @Args('sessionId') sessionId: string,
     @Args('name', { nullable: true }) name?: string,
@@ -100,6 +116,9 @@ export class CohortResolver {
     @Args('gracePeriodMinutes', { type: () => Int, nullable: true }) gracePeriodMinutes?: number,
     @Args('recurrenceDays', { type: () => [String], nullable: true }) recurrenceDays?: string[],
     @Args('latePenaltyAmount', { type: () => Int, nullable: true }) latePenaltyAmount?: number,
+    @Args('escalationThresholdMinutes', { type: () => Int, nullable: true }) escalationThresholdMinutes?: number,
+    @Args('escalationRate', { type: () => Int, nullable: true }) escalationRate?: number,
+    @Args('escalationIntervalMinutes', { type: () => Int, nullable: true }) escalationIntervalMinutes?: number,
   ) {
     const session = await this.cohortService.updateCohortSession(
       sessionId,
@@ -107,7 +126,10 @@ export class CohortResolver {
       startTime,
       gracePeriodMinutes,
       recurrenceDays,
-      latePenaltyAmount
+      latePenaltyAmount,
+      escalationThresholdMinutes,
+      escalationRate,
+      escalationIntervalMinutes
     );
     this.pubSub.publish('cohortsUpdated', { onCohortsUpdated: true });
     return session.id;
@@ -115,6 +137,7 @@ export class CohortResolver {
 
   @Mutation(() => Boolean)
   @UseGuards(GqlAuthGuard, RolesGuard)
+  @Roles('COORDINATOR', 'SUPER_ADMIN', 'ADMIN')
   async deleteCohortSession(
     @Args('sessionId') sessionId: string,
   ) {
@@ -127,20 +150,28 @@ export class CohortResolver {
 
   @Query(() => [Cohort])
   @UseGuards(GqlAuthGuard, RolesGuard)
+  @Roles('COORDINATOR', 'SUPER_ADMIN', 'ADMIN')
   async listCohorts(@CurrentUser() user: any) {
     return this.cohortService.listCohorts(user.userId);
   }
 
   @Query(() => Cohort, { nullable: true })
   @UseGuards(GqlAuthGuard, RolesGuard)
+  @Roles('COORDINATOR', 'SUPER_ADMIN', 'ADMIN')
   async cohortDetails(@Args('id') id: string) {
     return this.cohortService.getCohortDetails(id);
   }
 
   @Query(() => DashboardMetrics)
   @UseGuards(GqlAuthGuard, RolesGuard)
+  @Roles('COORDINATOR', 'SUPER_ADMIN', 'ADMIN')
   async dashboardMetrics(@CurrentUser() user: any) {
     return this.cohortService.getDashboardMetrics(user.userId);
+  }
+
+  @Query(() => [Cohort])
+  async publicActiveCohorts() {
+    return this.cohortService.publicActiveCohorts();
   }
 
   @Query(() => [Cohort])
@@ -169,6 +200,27 @@ export class CohortResolver {
       this.pubSub.publish('studentsUpdated', { onStudentsUpdated: true });
     }
     return joined;
+  }
+
+  @Query(() => CompanyProfile)
+  @UseGuards(GqlAuthGuard, RolesGuard)
+  @Roles('COORDINATOR', 'SUPER_ADMIN', 'ADMIN')
+  async companyProfile(@CurrentUser() user: any) {
+    return this.cohortService.getCompanyProfile(user.userId);
+  }
+
+  @Mutation(() => CompanyProfile)
+  @UseGuards(GqlAuthGuard, RolesGuard)
+  @Roles('COORDINATOR', 'SUPER_ADMIN', 'ADMIN')
+  async updateCompanyProfile(
+    @CurrentUser() user: any,
+    @Args('companyName', { nullable: true }) companyName?: string,
+    @Args('companyEmail', { nullable: true }) companyEmail?: string,
+    @Args('companyPhone', { nullable: true }) companyPhone?: string,
+    @Args('adminName', { nullable: true }) adminName?: string,
+    @Args('username', { nullable: true }) username?: string,
+  ) {
+    return this.cohortService.updateCompanyProfile(user.userId, companyName, companyEmail, companyPhone, adminName, username);
   }
 
   @Subscription(() => Boolean)

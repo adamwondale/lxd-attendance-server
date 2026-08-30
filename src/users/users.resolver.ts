@@ -5,6 +5,7 @@ import { PubSub } from 'graphql-subscriptions';
 import { GqlAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { CurrentUser } from '../auth/current-user.decorator';
+import { Roles } from '../auth/roles.decorator';
 import { UsersService } from './users.service';
 import { User } from './dto/user.type';
 
@@ -33,12 +34,31 @@ export class UsersResolver {
 
   @Query(() => [User])
   @UseGuards(GqlAuthGuard, RolesGuard)
+  @Roles('COORDINATOR', 'SUPER_ADMIN', 'ADMIN')
   listStudents(@CurrentUser() user: any) {
     return this.usersService.listStudents(user.tenantId);
   }
 
   @Mutation(() => User)
   @UseGuards(GqlAuthGuard, RolesGuard)
+  @Roles('COORDINATOR', 'SUPER_ADMIN', 'ADMIN')
+  async adminCreateStudent(
+    @Args('name') name: string,
+    @Args('email') email: string,
+    @Args('phone') phone: string,
+    @Args('username') username: string,
+    @Args('password') password: string,
+    @Args('cohortId', { nullable: true }) cohortId?: string,
+    @Args('sessionId', { nullable: true }) sessionId?: string,
+  ) {
+    const created = await this.usersService.adminCreateStudent(name, email, phone, username, password, cohortId, sessionId);
+    this.pubSub.publish('studentsUpdated', { onStudentsUpdated: true });
+    return created;
+  }
+
+  @Mutation(() => User)
+  @UseGuards(GqlAuthGuard, RolesGuard)
+  @Roles('COORDINATOR', 'SUPER_ADMIN', 'ADMIN')
   async adminUpdateStudent(
     @Args('id') id: string,
     @Args('name', { nullable: true }) name?: string,
@@ -51,6 +71,7 @@ export class UsersResolver {
 
   @Mutation(() => Boolean)
   @UseGuards(GqlAuthGuard, RolesGuard)
+  @Roles('COORDINATOR', 'SUPER_ADMIN', 'ADMIN')
   async adminDeleteStudent(@Args('id') id: string) {
     const deleted = await this.usersService.adminDeleteStudent(id);
     if (deleted) {
@@ -61,6 +82,7 @@ export class UsersResolver {
 
   @Mutation(() => Boolean)
   @UseGuards(GqlAuthGuard, RolesGuard)
+  @Roles('COORDINATOR', 'SUPER_ADMIN', 'ADMIN')
   async adminEnrollStudent(
     @Args('userId') userId: string,
     @Args('cohortId') cohortId: string,
@@ -73,6 +95,7 @@ export class UsersResolver {
 
   @Mutation(() => Boolean)
   @UseGuards(GqlAuthGuard, RolesGuard)
+  @Roles('COORDINATOR', 'SUPER_ADMIN', 'ADMIN')
   async adminUpdateStudentMembership(
     @Args('userId') userId: string,
     @Args('cohortId') cohortId: string,
@@ -85,6 +108,7 @@ export class UsersResolver {
 
   @Mutation(() => Boolean)
   @UseGuards(GqlAuthGuard, RolesGuard)
+  @Roles('COORDINATOR', 'SUPER_ADMIN', 'ADMIN')
   async adminRemoveStudentFromCohort(
     @Args('userId') userId: string,
     @Args('cohortId') cohortId: string,

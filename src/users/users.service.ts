@@ -34,6 +34,22 @@ export class UsersService {
     });
   }
 
+  async adminCreateStudent(name: string, email: string, phone: string, username: string, password: string, cohortId?: string, sessionId?: string) {
+    const existing = await this.prisma.user.findFirst({ where: { OR: [{ email }, { username }, ...(phone ? [{ phone }] : [])] } });
+    if (existing) throw new Error('A student with that email, username, or phone already exists');
+    const bcrypt = await import('bcrypt');
+    const hashed = await bcrypt.hash(password, 10);
+    const user = await this.prisma.user.create({ data: { name, email, phone, username, password: hashed } });
+    if (cohortId && sessionId) {
+      const cohort = await this.prisma.cohort.findUnique({ where: { id: cohortId } });
+      const session = await this.prisma.cohortSession.findUnique({ where: { id: sessionId } });
+      if (!cohort || !cohort.isActive || !session || session.cohortId !== cohortId) throw new Error('Invalid cohort or session');
+      await this.prisma.cohortMembership.create({ data: { userId: user.id, cohortId, sessionId, status: 'ACTIVE' } });
+      await this.prisma.userTenantRole.create({ data: { userId: user.id, tenantId: cohort.tenantId, role: 'STUDENT' } });
+    }
+    return user;
+  }
+
   async adminUpdateStudent(id: string, name?: string, email?: string) {
     const data: any = {};
     if (name !== undefined) data.name = name;

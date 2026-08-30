@@ -19,7 +19,7 @@ describe('CohortService (TDD)', () => {
   describe('createCohortSession', () => {
     it('throws BadRequestException if the cohort does not exist', async () => {
       prismaMock.cohort.findUnique.mockResolvedValue(null);
-      await expect(service.createCohortSession('invalid', 'Test Session', '09:00', 15, ['EVERYDAY']))
+      await expect(service.createCohortSession('invalid', 'Test Session', '09:00', 15, ['EVERYDAY'], 50))
         .rejects.toThrow(BadRequestException);
     });
 

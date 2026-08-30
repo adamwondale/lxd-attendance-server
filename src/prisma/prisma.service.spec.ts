@@ -20,7 +20,7 @@ describe('PrismaService DB-02 (Mocked)', () => {
     // 2. Create a dummy log
     const mockLog = { id: 'log-123', sessionId: 'session-123', userId: 'user-1' };
     prismaMock.attendanceLog.create.mockResolvedValue(mockLog as any);
-    const log = await prismaMock.attendanceLog.create({ data: { sessionId: 'session-123', userId: 'user-1' } });
+    const log = await prismaMock.attendanceLog.create({ data: { sessionId: 'session-123', userId: 'user-1', date: '2026-08-30' } });
     expect(log.sessionId).toBe('session-123');
 
     // 3. Create a penalty linked to log
@@ -36,6 +36,6 @@ describe('PrismaService DB-02 (Mocked)', () => {
     );
     prismaMock.attendanceLog.create.mockRejectedValueOnce(p2002Error);
     
-    await expect(prismaMock.attendanceLog.create({ data: { sessionId: 'session-123', userId: 'user-1' } })).rejects.toThrow('Unique constraint failed');
+    await expect(prismaMock.attendanceLog.create({ data: { sessionId: 'session-123', userId: 'user-1', date: '2026-08-30' } })).rejects.toThrow('Unique constraint failed');
   });
 });

@@ -3,7 +3,7 @@ import * as crypto from 'crypto';
 
 @Injectable()
 export class QrService {
-  private readonly secret = 'QtNDNr4Ii0x1Zaqw8geuV1ZE1wxhSqOSMCH9URZIXwS';
+  private readonly secret = process.env.SECRET || 'QtNDNr4Ii0x1Zaqw8geuV1ZE1wxhSqOSMCH9URZIXwS';
 
   generateQr(cohortId: string): string {
     const timestamp = Date.now();

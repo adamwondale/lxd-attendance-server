@@ -41,7 +41,7 @@ export class AuthResolver {
     @Args('sessionId', { nullable: true }) sessionId?: string,
     @Args('cohortPin', { nullable: true }) cohortPin?: string,
   ) {
-    const user = await this.authService.registerStudent(email, passwordRaw, name, phone, username, cohortId, sessionId, cohortPin);
+    const user = await this.authService.registerStudent(email, passwordRaw, name, phone, username);
     return user.id;
   }
 

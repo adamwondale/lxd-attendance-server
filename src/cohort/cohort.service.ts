@@ -271,7 +271,12 @@ export class CohortService {
     adminName?: string,
     username?: string,
   ) {
-    if (username && username !== user?.username) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId }, include: { tenants: true } });
+    if (!user) throw new BadRequestException('User not found');
+    const tenantId = user.tenants[0]?.tenantId;
+    if (!tenantId) throw new BadRequestException('No tenant found for user');
+
+    if (username && username !== user.username) {
       const duplicate = await this.prisma.user.findFirst({
         where: { username, NOT: { id: userId } },
       });

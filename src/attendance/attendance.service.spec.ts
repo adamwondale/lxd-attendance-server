@@ -65,10 +65,8 @@ describe('AttendanceService (ATTEND tests)', () => {
         cohort: {
           tenantId: 'tenant1',
           timezone: 'Africa/Addis_Ababa',
+          latePenaltyAmount: 25,
         },
-      session: {
-        ...mockSessionBase,
-        cohort: { latePenaltyAmount: 25 },
       },
     } as any);
   });

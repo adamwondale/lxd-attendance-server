@@ -75,14 +75,6 @@ export class AuthService {
       const user = await tx.user.create({
         data: { email, name, phone, username, password: hashedPassword },
       });
-      if (selectedCohort) {
-        await tx.cohortMembership.create({
-          data: { userId: user.id, cohortId: selectedCohort.id, sessionId, status: 'ACTIVE' },
-        });
-        await tx.userTenantRole.create({
-          data: { userId: user.id, tenantId: selectedCohort.tenantId, role: 'STUDENT' },
-        });
-      }
       return user;
     });
   }

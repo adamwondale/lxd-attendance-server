@@ -12,14 +12,14 @@ describe('CohortsService (MEM tests)', () => {
   beforeEach(async () => {
     prismaMock = mockDeep<PrismaService>();
 
-    const module: TestingModule = await Test.createTestingModule({
+    const testingModule: TestingModule = await Test.createTestingModule({
       providers: [
         CohortsService,
         { provide: PrismaService, useValue: prismaMock },
       ],
     }).compile();
 
-    service = module.get<CohortsService>(CohortsService);
+    service = testingModule.get<CohortsService>(CohortsService);
   });
 
   describe('joinCohort', () => {
@@ -29,25 +29,29 @@ describe('CohortsService (MEM tests)', () => {
     const cohortId = 'cohort-456';
     const membershipId = 'membership-789';
     
-    const mockCohort = {
+    const mockCohort: Prisma.Cohort = {
       id: cohortId,
       tenantId: 'tenant-1',
       name: 'Test Cohort',
       pin: validPin,
-      duration: '3_MONTHS',
-      settlementDeadline: '2026-12-31',
+      startDate: new Date('2026-08-01T00:00:00Z'),
+      endDate: new Date('2026-11-01T00:00:00Z'),
+      isActive: true,
+      durationMonths: 3,
     };
 
-    const mockMembership = {
+    const mockMembership: Prisma.CohortMembership = {
       id: membershipId,
-      cohortId: cohortId,
-      userId: userId,
+      cohortId,
+      userId,
+      sessionId: null,
       joinedAt: new Date(),
+      status: 'ACTIVE',
     };
 
     it('MEM-01: Valid PIN -> creates CohortMembership', async () => {
-      prismaMock.cohort.findUnique.mockResolvedValue(mockCohort as any);
-      prismaMock.cohortMembership.create.mockResolvedValue(mockMembership as any);
+      prismaMock.cohort.findUnique.mockResolvedValue(mockCohort);
+      prismaMock.cohortMembership.create.mockResolvedValue(mockMembership);
 
       const result = await service.joinCohort(userId, validPin);
       
@@ -62,7 +66,7 @@ describe('CohortsService (MEM tests)', () => {
     });
 
     it('MEM-02: Duplicate PIN submit -> catches P2002 error gracefully, returns existing membership', async () => {
-      prismaMock.cohort.findUnique.mockResolvedValue(mockCohort as any);
+      prismaMock.cohort.findUnique.mockResolvedValue(mockCohort);
       
       // Simulate P2002 error on create
       const p2002Error = new Prisma.PrismaClientKnownRequestError(
@@ -72,7 +76,7 @@ describe('CohortsService (MEM tests)', () => {
       prismaMock.cohortMembership.create.mockRejectedValue(p2002Error);
       
       // When it fails, it should fetch the existing membership
-      prismaMock.cohortMembership.findUnique.mockResolvedValue(mockMembership as any);
+      prismaMock.cohortMembership.findUnique.mockResolvedValue(mockMembership);
 
       const result = await service.joinCohort(userId, validPin);
       

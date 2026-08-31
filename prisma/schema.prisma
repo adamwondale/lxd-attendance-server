@@ -11,7 +11,10 @@ model Tenant {
   id        String           @id @default(auto()) @map("_id") @db.ObjectId
   name      String
   slug      String           @unique
-  timezone  String           @default("Africa/Addis_Ababa") 
+  timezone       String           @default("Africa/Addis_Ababa")
+  companyEmail   String?
+  companyPhone   String?
+  adminName      String?
   cohorts   Cohort[]
   users     UserTenantRole[]
 }
@@ -48,6 +51,7 @@ model Cohort {
   startDate          DateTime
   endDate            DateTime
   isActive           Boolean            @default(true)
+  durationMonths     Int?
   tenant             Tenant             @relation(fields: [tenantId], references: [id])
   sessions           CohortSession[]
   memberships        CohortMembership[] 
@@ -74,6 +78,9 @@ model CohortSession {
   gracePeriodMinutes Int             // e.g., 5
   recurrenceDays     String[]        // e.g., ["MON", "TUE"] or ["EVERYDAY"]
   latePenaltyAmount  Int             @default(25)
+  escalationThresholdMinutes Int     @default(15)
+  escalationRate             Int     @default(5)
+  escalationIntervalMinutes  Int     @default(5)
   cohort             Cohort          @relation(fields: [cohortId], references: [id])
   logs               AttendanceLog[]
   memberships        CohortMembership[]
@@ -86,10 +93,15 @@ model AttendanceLog {
   date      String        // e.g. "2026-08-29"
   scannedAt DateTime      @default(now())
   isLate    Boolean       @default(false)
+  latenessMinutes Int      @default(0)
+  calculatedPenalty Int    @default(0)
+  deviceSignature String?
+  isManualScan Boolean      @default(false)
   session   CohortSession @relation(fields: [sessionId], references: [id])
   user      User          @relation(fields: [userId], references: [id])
   penalty   Penalty?      
   @@unique([sessionId, userId, date]) // Idempotency lock
+  @@index([deviceSignature, scannedAt])
 }
 
 model Penalty {
@@ -101,4 +113,11 @@ model Penalty {
   createdAt       DateTime      @default(now())
   user            User          @relation(fields: [userId], references: [id])
   attendanceLog   AttendanceLog @relation(fields: [attendanceLogId], references: [id])
+}
+
+model DeviceLock {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  signature  String   @unique
+  lockedUntil DateTime
+  updatedAt  DateTime @updatedAt
 }

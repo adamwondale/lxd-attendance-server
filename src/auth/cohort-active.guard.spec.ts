@@ -21,14 +21,14 @@ describe('CohortActiveGuard (GUARD-01)', () => {
   beforeEach(async () => {
     prismaMock = mockDeep<PrismaService>();
 
-    const module: TestingModule = await Test.createTestingModule({
+    const testingModule: TestingModule = await Test.createTestingModule({
       providers: [
         CohortActiveGuard,
         { provide: PrismaService, useValue: prismaMock },
       ],
     }).compile();
 
-    guard = module.get<CohortActiveGuard>(CohortActiveGuard);
+    guard = testingModule.get<CohortActiveGuard>(CohortActiveGuard);
   });
 
   const createMockContext = (cohortId: string) => {

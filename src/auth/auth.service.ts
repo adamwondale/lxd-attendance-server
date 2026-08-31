@@ -6,61 +6,54 @@ import { JwtService } from '@nestjs/jwt';
 
 @Injectable()
 export class AuthService {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly jwtService: JwtService,
-  ) {}
+  constructor(private readonly prisma: PrismaService, private readonly jwtService: JwtService) {}
 
-  async registerAdmin(email: string, passwordRaw: string, name: string, tenantName: string) {
-    const existing = await this.prisma.user.findUnique({ where: { email } });
-    if (existing) {
-      throw new BadRequestException('User already exists');
-    }
+  async registerAdmin(
+    email: string,
+    passwordRaw: string,
+    name: string,
+    tenantName: string,
+    companyPhone?: string,
+    username?: string,
+    companyEmail?: string,
+  ) {
+    const existing = await this.prisma.user.findFirst({ where: { OR: [{ email }, ...(username ? [{ username }] : [])] } });
+    if (existing) throw new BadRequestException('Admin email or username already exists');
+    if (passwordRaw.length < 6) throw new BadRequestException('Password must be at least 6 characters');
 
     const hashedPassword = await bcrypt.hash(passwordRaw, 10);
-
-    return await this.prisma.$transaction(async (tx) => {
-      const slug = tenantName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    return this.prisma.$transaction(async (tx) => {
+      const slugBase = tenantName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'company';
       const tenant = await tx.tenant.create({
         data: {
           name: tenantName,
-          slug: `${slug}-${Date.now()}`,
+          slug: `${slugBase}-${Date.now()}`,
+          companyEmail: companyEmail || email,
+          companyPhone,
+          adminName: name,
         },
       });
-
       const user = await tx.user.create({
         data: {
           email,
           name,
+          username,
+          phone: companyPhone,
           password: hashedPassword,
-          tenants: {
-            create: {
-              tenantId: tenant.id,
-              role: 'SUPER_ADMIN',
-            },
-          },
+          tenants: { create: { tenantId: tenant.id, role: 'SUPER_ADMIN' } },
         },
       });
-
       return user;
     });
   }
 
   async loginAdmin(email: string, passwordRaw: string) {
-    const user = await this.prisma.user.findUnique({ where: { email } });
-    if (!user || !user.password) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
-
-    const isMatch = await bcrypt.compare(passwordRaw, user.password);
-    if (!isMatch) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
-
-    const payload = { sub: user.id, email: user.email, role: 'SUPER_ADMIN' }; // hardcoding role for MVP
-    return {
-      accessToken: this.jwtService.sign(payload, { expiresIn: '7d' }),
-    };
+    const user = await this.prisma.user.findUnique({ where: { email }, include: { tenants: true } });
+    const adminRole = user?.tenants?.find(t => ['SUPER_ADMIN', 'COORDINATOR'].includes(t.role));
+    if (!user || !user.password || !adminRole) throw new UnauthorizedException('Invalid credentials');
+    if (!(await bcrypt.compare(passwordRaw, user.password))) throw new UnauthorizedException('Invalid credentials');
+    const payload = { sub: user.id, email: user.email, role: adminRole.role, tenantId: adminRole.tenantId };
+    return { accessToken: this.jwtService.sign(payload, { expiresIn: '7d' }) };
   }
 
   async registerStudent(email: string, passwordRaw: string, name: string, phone: string, username: string) {
@@ -77,93 +70,52 @@ export class AuthService {
     if (existing) {
       throw new BadRequestException('User with that email, phone, or username already exists');
     }
-
     const hashedPassword = await bcrypt.hash(passwordRaw, 10);
-
-    const user = await this.prisma.user.create({
-      data: {
-        email,
-        name,
-        phone,
-        username,
-        password: hashedPassword,
-      },
+    return this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: { email, name, phone, username, password: hashedPassword },
+      });
+      if (selectedCohort) {
+        await tx.cohortMembership.create({
+          data: { userId: user.id, cohortId: selectedCohort.id, sessionId, status: 'ACTIVE' },
+        });
+        await tx.userTenantRole.create({
+          data: { userId: user.id, tenantId: selectedCohort.tenantId, role: 'STUDENT' },
+        });
+      }
+      return user;
     });
-
-    return user;
   }
 
   async loginStudent(identifier: string, passwordRaw: string) {
-    // identifier can be email or username
-    const user = await this.prisma.user.findFirst({
-      where: {
-        OR: [
-          { email: identifier },
-          { username: identifier },
-        ]
-      }
-    });
-
-    if (!user || !user.password) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
-
-    const isMatch = await bcrypt.compare(passwordRaw, user.password);
-    if (!isMatch) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
-
-    const payload = { sub: user.id, email: user.email, role: 'STUDENT' };
-    return {
-      accessToken: this.jwtService.sign(payload, { expiresIn: '180d' }),
-    };
+    const user = await this.prisma.user.findFirst({ where: { OR: [{ email: identifier }, { username: identifier }] }, include: { tenants: true } });
+    if (!user || !user.password) throw new UnauthorizedException('Invalid credentials');
+    if (!(await bcrypt.compare(passwordRaw, user.password))) throw new UnauthorizedException('Invalid credentials');
+    const studentRole = user.tenants.find(t => t.role === 'STUDENT');
+    const payload = { sub: user.id, email: user.email, role: 'STUDENT', tenantId: studentRole?.tenantId };
+    return { accessToken: this.jwtService.sign(payload, { expiresIn: '180d' }) };
   }
 
   async loginWithGoogle(idToken: string) {
     const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
-    let payload;
+    let payload: any;
     try {
-      const ticket = await client.verifyIdToken({
-        idToken,
-        audience: process.env.GOOGLE_CLIENT_ID,
-      });
+      const ticket = await client.verifyIdToken({ idToken, audience: process.env.GOOGLE_CLIENT_ID });
       payload = ticket.getPayload();
     } catch (e) {
       console.error('Google token verification failed:', e);
       throw new BadRequestException('Invalid Google token');
     }
+    if (!payload?.email) throw new BadRequestException('Invalid Google payload');
 
-    if (!payload || !payload.email) {
-      throw new BadRequestException('Invalid Google payload');
-    }
-
-    let user = await this.prisma.user.findFirst({
-      where: {
-        OR: [
-          { oauthId: payload.sub },
-          { email: payload.email },
-        ],
-      },
-    });
-
+    let user = await this.prisma.user.findFirst({ where: { OR: [{ oauthId: payload.sub }, { email: payload.email }] }, include: { tenants: true } });
     if (!user) {
-      user = await this.prisma.user.create({
-        data: {
-          email: payload.email,
-          name: payload.name || 'Student',
-          oauthId: payload.sub,
-        },
-      });
+      user = await this.prisma.user.create({ data: { email: payload.email, name: payload.name || 'Student', oauthId: payload.sub }, include: { tenants: true } });
     } else if (!user.oauthId) {
-      user = await this.prisma.user.update({
-        where: { id: user.id },
-        data: { oauthId: payload.sub },
-      });
+      user = await this.prisma.user.update({ where: { id: user.id }, data: { oauthId: payload.sub }, include: { tenants: true } });
     }
-
-    const jwtPayload = { sub: user.id, email: user.email, role: 'STUDENT' };
-    return {
-      accessToken: this.jwtService.sign(jwtPayload, { expiresIn: '180d' }),
-    };
+    const studentRole = user.tenants.find(t => t.role === 'STUDENT');
+    const jwtPayload = { sub: user.id, email: user.email, role: 'STUDENT', tenantId: studentRole?.tenantId };
+    return { accessToken: this.jwtService.sign(jwtPayload, { expiresIn: '180d' }) };
   }
 }

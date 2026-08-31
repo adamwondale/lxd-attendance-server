@@ -19,5 +19,5 @@ export class User {
   username?: string;
 
   @Field(() => [CohortMembership], { nullable: true })
-  memberships?: any[];
+  memberships?: CohortMembership[];
 }

@@ -10,24 +10,24 @@ describe('CohortService (TDD)', () => {
 
   beforeEach(async () => {
     prismaMock = mockDeep<PrismaService>();
-    const module: TestingModule = await Test.createTestingModule({
+    const testingModule: TestingModule = await Test.createTestingModule({
       providers: [CohortService, { provide: PrismaService, useValue: prismaMock }],
     }).compile();
-    service = module.get<CohortService>(CohortService);
+    service = testingModule.get<CohortService>(CohortService);
   });
 
   describe('createCohortSession', () => {
     it('throws BadRequestException if the cohort does not exist', async () => {
-      prismaMock.cohort.findUnique.mockResolvedValue(null);
-      await expect(service.createCohortSession('invalid', 'Test Session', '09:00', 15, ['EVERYDAY'], 50))
+      prismaMock.cohort.findFirst.mockResolvedValue(null);
+      await expect(service.createCohortSession('tenant-1', 'invalid', 'Test Session', '09:00', 15, ['EVERYDAY'], 50))
         .rejects.toThrow(BadRequestException);
     });
 
     it('creates a cohort session correctly', async () => {
-      prismaMock.cohort.findUnique.mockResolvedValue({ id: 'c1' } as any);
+      prismaMock.cohort.findFirst.mockResolvedValue({ id: 'c1', tenantId: 't1' } as any);
       prismaMock.cohortSession.create.mockResolvedValue({ id: 's1' } as any);
 
-      const result = await service.createCohortSession('c1', 'S1', '09:00', 15, ['EVERYDAY'], 50);
+      const result = await service.createCohortSession('t1', 'c1', 'S1', '09:00', 15, ['EVERYDAY'], 50);
       expect(result.id).toBe('s1');
       expect(prismaMock.cohortSession.create).toHaveBeenCalledWith({
         data: {
@@ -37,6 +37,9 @@ describe('CohortService (TDD)', () => {
           gracePeriodMinutes: 15,
           recurrenceDays: ['EVERYDAY'],
           latePenaltyAmount: 50,
+          escalationThresholdMinutes: 15,
+          escalationRate: 5,
+          escalationIntervalMinutes: 5,
         }
       });
     });
@@ -44,16 +47,16 @@ describe('CohortService (TDD)', () => {
 
   describe('updateCohortSession', () => {
     it('throws BadRequestException if the session does not exist', async () => {
-      prismaMock.cohortSession.findUnique.mockResolvedValue(null);
-      await expect(service.updateCohortSession('invalid', 'New Name'))
+      prismaMock.cohortSession.findFirst.mockResolvedValue(null);
+      await expect(service.updateCohortSession('tenant-1', 'invalid', 'New Name'))
         .rejects.toThrow(BadRequestException);
     });
 
     it('updates a cohort session correctly', async () => {
-      prismaMock.cohortSession.findUnique.mockResolvedValue({ id: 's1' } as any);
+      prismaMock.cohortSession.findFirst.mockResolvedValue({ id: 's1', cohortId: 'c1' } as any);
       prismaMock.cohortSession.update.mockResolvedValue({ id: 's1', name: 'New Name' } as any);
 
-      const result = await service.updateCohortSession('s1', 'New Name', '10:00', undefined, undefined, 75);
+      const result = await service.updateCohortSession('t1', 's1', 'New Name', '10:00', undefined, undefined, 75);
       expect(result.id).toBe('s1');
       expect(prismaMock.cohortSession.update).toHaveBeenCalledWith({
         where: { id: 's1' },
@@ -68,32 +71,38 @@ describe('CohortService (TDD)', () => {
 
   describe('deleteCohortSession', () => {
     it('throws BadRequestException if the session does not exist', async () => {
-      prismaMock.cohortSession.findUnique.mockResolvedValue(null);
-      await expect(service.deleteCohortSession('invalid'))
+      prismaMock.cohortSession.findFirst.mockResolvedValue(null);
+      await expect(service.deleteCohortSession('tenant-1', 'invalid'))
         .rejects.toThrow(BadRequestException);
     });
 
     it('deletes a cohort session correctly', async () => {
-      prismaMock.cohortSession.findUnique.mockResolvedValue({ id: 's1' } as any);
-      prismaMock.cohortSession.delete.mockResolvedValue({ id: 's1' } as any);
+      prismaMock.cohortSession.findFirst.mockResolvedValue({ id: 's1', cohortId: 'c1' } as any);
+      prismaMock.cohortSession.deleteMany.mockResolvedValue({ count: 1 });
 
-      const result = await service.deleteCohortSession('s1');
+      const result = await service.deleteCohortSession('t1', 's1');
       expect(result).toBe(true);
-      expect(prismaMock.cohortSession.delete).toHaveBeenCalledWith({
-        where: { id: 's1' }
+      expect(prismaMock.cohortSession.deleteMany).toHaveBeenCalledWith({
+        where: { id: 's1', cohort: { tenantId: 't1' } }
       });
     });
   });
 
   describe('createCohort', () => {
+    it('rejects an invalid duration before persisting', async () => {
+      await expect(
+        service.updateCohort('t1', 'c1', undefined, undefined, undefined, undefined, undefined, 12),
+      ).rejects.toThrow(BadRequestException);
+      expect(prismaMock.cohort.updateMany).not.toHaveBeenCalled();
+    });
+
     it('creates a cohort successfully', async () => {
-      prismaMock.user.findUnique.mockResolvedValue({ id: 'u1', tenants: [{ tenantId: 't1' }] } as any);
       prismaMock.cohort.findUnique.mockResolvedValue(null);
       prismaMock.cohort.create.mockResolvedValue({ id: 'c1' } as any);
 
       const startDate = new Date();
       const endDate = new Date();
-      const result = await service.createCohort('u1', 'C1', '1234', startDate, endDate);
+      const result = await service.createCohort('t1', 'C1', '1234', startDate, endDate);
       expect(result.id).toBe('c1');
     });
   });

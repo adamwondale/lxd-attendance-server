@@ -1,3 +1,5 @@
+process.env.SECRET = process.env.SECRET || 'test-secret';
+
 import { Test, TestingModule } from '@nestjs/testing';
 import { QrService } from './qr.service';
 import { BadRequestException } from '@nestjs/common';
@@ -6,11 +8,11 @@ describe('QrService (15-Second Sliding Window)', () => {
   let service: QrService;
   
   beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
+    const testingModule: TestingModule = await Test.createTestingModule({
       providers: [QrService],
     }).compile();
 
-    service = module.get<QrService>(QrService);
+    service = testingModule.get<QrService>(QrService);
     
     jest.useFakeTimers();
     jest.setSystemTime(new Date('2026-08-27T10:00:00.000Z').getTime());

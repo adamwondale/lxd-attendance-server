@@ -15,8 +15,13 @@ async function main() {
   await prisma.user.deleteMany();
 
   console.log('Seeding default Admin and Tenant...');
-  
-  const hashedPassword = await bcrypt.hash('admin123', 10);
+
+  const seedPassword = process.env.SEED_ADMIN_PASSWORD?.trim();
+  if (!seedPassword) {
+    throw new Error('SEED_ADMIN_PASSWORD must be provided for seeding.');
+  }
+
+  const hashedPassword = await bcrypt.hash(seedPassword, 10);
   
   const tenant = await prisma.tenant.create({
     data: {
@@ -44,7 +49,7 @@ async function main() {
   console.log('✅ Seeding Complete!');
   console.log('Tenant:', tenant.name);
   console.log('Admin Email:', admin.email);
-  console.log('Admin Password: admin123');
+  console.log('Admin Password: provided through SEED_ADMIN_PASSWORD');
   console.log('----------------------------------------------------');
 }
 

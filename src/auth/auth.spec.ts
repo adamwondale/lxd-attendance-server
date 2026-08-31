@@ -7,6 +7,7 @@ import { AuthModule } from './auth.module';
 import { UsersModule } from '../users/users.module';
 import { UsersService } from '../users/users.service';
 import { JwtService } from '@nestjs/jwt';
+import { PrismaService } from '../prisma/prisma.service';
 
 describe('AUTH-01: JwtAuthGuard', () => {
   let app: INestApplication;
@@ -31,6 +32,10 @@ describe('AUTH-01: JwtAuthGuard', () => {
     .overrideProvider(UsersService)
     .useValue({
       me: jest.fn().mockResolvedValue({ id: 'some-user-id' }),
+    })
+    .overrideProvider(PrismaService)
+    .useValue({
+      onModuleInit: jest.fn(),
     })
     .compile();
 

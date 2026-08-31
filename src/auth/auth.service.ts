@@ -64,13 +64,13 @@ export class AuthService {
   }
 
   async registerStudent(email: string, passwordRaw: string, name: string, phone: string, username: string) {
+    const orConditions: any[] = [{ email }];
+    if (phone) orConditions.push({ phone });
+    if (username) orConditions.push({ username });
+
     const existing = await this.prisma.user.findFirst({
       where: {
-        OR: [
-          { email },
-          { phone },
-          { username },
-        ]
+        OR: orConditions
       }
     });
     

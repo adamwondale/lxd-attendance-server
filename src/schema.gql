@@ -55,19 +55,6 @@ type Cohort {
   tenantId: String!
 }
 
-
-
-type PublicCohort {
-  durationMonths: Int
-  endDate: DateTime!
-  id: ID!
-  isActive: Boolean!
-  joinedSession: CohortSession
-  name: String!
-  sessions: [CohortSession!]
-  startDate: DateTime!
-}
-
 type CohortMembership {
   cohort: Cohort
   cohortId: String!
@@ -149,6 +136,17 @@ type Penalty {
   status: String!
 }
 
+type PublicCohort {
+  durationMonths: Int
+  endDate: DateTime!
+  id: ID!
+  isActive: Boolean!
+  joinedSession: CohortSession
+  name: String!
+  sessions: [CohortSession!]
+  startDate: DateTime!
+}
+
 type Query {
   attendanceReport(cohortId: String, endDate: String!, sessionId: String, startDate: String!): [AttendanceReportRow!]!
   availableCohorts: [PublicCohort!]!
@@ -163,6 +161,8 @@ type Query {
   myAttendanceSummary: StudentAttendanceSummary!
   myCohorts: [Cohort!]!
   myQrBadge: String!
+  projectorQr(cohortId: String!, sessionId: String): String!
+  projectorRecentScans(cohortId: String!, sessionId: String): [AttendanceEvent!]!
   publicActiveCohorts: [PublicCohort!]!
   studentQrBadge(studentId: String!): String!
 }

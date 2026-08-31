@@ -4,7 +4,8 @@ import { QrService } from './qr.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { GqlAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
-import { CurrentUser, AuthenticatedUser } from '../auth/current-user.decorator';
+import { CurrentUser } from '../auth/current-user.decorator';
+import type { AuthenticatedUser } from '../auth/current-user.decorator';
 
 @Resolver()
 export class QrResolver {
@@ -31,6 +32,31 @@ export class QrResolver {
     });
     if (!student) throw new ForbiddenException('Student is not accessible for this tenant.');
     return this.qrService.generateStudentQr(studentId);
+  }
+
+  @Query(() => String)
+  async projectorQr(
+    @Args('cohortId') cohortId: string,
+    @Args('sessionId', { nullable: true }) sessionId?: string,
+  ) {
+    const cohort = await this.prisma.cohort.findFirst({
+      where: {
+        id: cohortId,
+        isActive: true,
+        endDate: { gte: new Date() },
+      },
+      select: {
+        id: true,
+        sessions: { select: { id: true } },
+      },
+    });
+
+    if (!cohort) throw new ForbiddenException('Cohort is not active or does not exist.');
+    if (sessionId && !cohort.sessions.some((session) => session.id === sessionId)) {
+      throw new ForbiddenException('Session is not part of this cohort.');
+    }
+
+    return this.qrService.generateQr(cohort.id, sessionId);
   }
 
   @Query(() => String)

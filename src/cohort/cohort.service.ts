@@ -74,7 +74,7 @@ export class CohortService {
       },
     });
     if (!result.count) throw new BadRequestException('Cohort not found');
-    return this.prisma.cohort.findUnique({ where: { id: cohortId } });
+    return this.prisma.cohort.findUniqueOrThrow({ where: { id: cohortId } });
   }
 
   async deleteCohort(tenantId: string, cohortId: string) {
@@ -271,7 +271,24 @@ export class CohortService {
     adminName?: string,
     username?: string,
   ) {
-    if (username && username !== user?.username) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        username: true,
+        tenants: {
+          where: { role: { in: ['ADMIN', 'COORDINATOR', 'SUPER_ADMIN'] } },
+          include: { tenant: true },
+          take: 1,
+        },
+      },
+    });
+
+    const tenantId = user?.tenants?.[0]?.tenantId;
+    if (!user || !tenantId) {
+      throw new BadRequestException('User has no active company profile');
+    }
+
+    if (username && username !== user.username) {
       const duplicate = await this.prisma.user.findFirst({
         where: { username, NOT: { id: userId } },
       });

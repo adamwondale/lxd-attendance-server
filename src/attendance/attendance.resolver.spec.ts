@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import { Test, TestingModule } from '@nestjs/testing';
 import { AttendanceResolver } from './attendance.resolver';
 import { AttendanceService } from './attendance.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { PubSub } from 'graphql-subscriptions';
 import { GqlAuthGuard } from '../auth/jwt-auth.guard';
 import { GUARDS_METADATA } from '@nestjs/common/constants';
@@ -10,6 +11,7 @@ describe('AttendanceResolver (WebSockets)', () => {
   let resolver: AttendanceResolver;
   let attendanceServiceMock: jest.Mocked<AttendanceService>;
   let pubSubMock: jest.Mocked<PubSub>;
+  const prismaMock = { attendanceLog: { findMany: jest.fn() } };
 
   beforeEach(async () => {
     attendanceServiceMock = {
@@ -30,6 +32,7 @@ describe('AttendanceResolver (WebSockets)', () => {
       providers: [
         AttendanceResolver,
         { provide: AttendanceService, useValue: attendanceServiceMock },
+        { provide: PrismaService, useValue: prismaMock },
         { provide: 'PUB_SUB', useValue: pubSubMock },
       ],
     }).compile();

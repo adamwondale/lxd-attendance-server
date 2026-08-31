@@ -4,7 +4,9 @@ import { AttendanceService } from './attendance.service';
 import { GqlAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
-import { AuthenticatedUser, CurrentUser } from '../auth/current-user.decorator';
+import { CurrentUser } from '../auth/current-user.decorator';
+import type { AuthenticatedUser } from '../auth/current-user.decorator';
+import { PrismaService } from '../prisma/prisma.service';
 import { PubSub } from 'graphql-subscriptions';
 import { AttendanceLog, AttendanceEvent, AttendanceReportRow, StudentAttendanceSummary, Penalty } from './dto/attendance.type';
 
@@ -12,6 +14,7 @@ import { AttendanceLog, AttendanceEvent, AttendanceReportRow, StudentAttendanceS
 export class AttendanceResolver {
   constructor(
     private readonly attendanceService: AttendanceService,
+    private readonly prisma: PrismaService,
     @Inject('PUB_SUB') private pubSub: PubSub,
   ) {}
 
@@ -30,6 +33,43 @@ export class AttendanceResolver {
     @Args('sessionId', { nullable: true }) sessionId?: string,
   ) {
     return this.attendanceService.getAttendanceLogs(cohortId, sessionId, user.tenantId);
+  }
+
+  @Query(() => [AttendanceEvent])
+  async projectorRecentScans(
+    @Args('cohortId') cohortId: string,
+    @Args('sessionId', { nullable: true }) sessionId?: string,
+  ) {
+    const rows = await this.prisma.attendanceLog.findMany({
+      where: {
+        session: {
+          cohort: {
+            id: cohortId,
+            isActive: true,
+            endDate: { gte: new Date() },
+          },
+          ...(sessionId ? { id: sessionId } : {}),
+        },
+      },
+      include: {
+        user: { select: { id: true, name: true, email: true } },
+        penalty: true,
+      },
+      orderBy: { scannedAt: 'desc' },
+      take: 30,
+    });
+
+    return rows.map((log) => ({
+      id: log.id,
+      cohortId,
+      sessionId: log.sessionId,
+      date: log.date,
+      scannedAt: log.scannedAt,
+      user: log.user,
+      isLate: log.isLate,
+      latenessMinutes: log.latenessMinutes || 0,
+      calculatedPenalty: log.penalty?.amount || log.calculatedPenalty || 0,
+    }));
   }
 
   @Query(() => [AttendanceReportRow])

@@ -26,14 +26,12 @@ import { PubSubModule } from './pubsub/pubsub.module';
       }),
       subscriptions: {
         'graphql-ws': {
-          onConnect: ({ connectionParams, extra }: {
-            connectionParams?: Record<string, unknown>;
-            extra: GraphQLWsExtra;
-          }) => {
-            const authorization = connectionParams?.authorization;
+          onConnect: (ctx) => {
+            const authorization = ctx.connectionParams?.authorization;
             if (typeof authorization !== 'string' || !authorization.startsWith('Bearer ')) {
               throw new Error('Unauthorized');
             }
+            const extra = ctx.extra as unknown as GraphQLWsExtra;
             extra.request = {
               headers: { authorization },
             } as Request;

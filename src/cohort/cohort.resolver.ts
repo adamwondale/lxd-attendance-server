@@ -6,7 +6,8 @@ import { DashboardMetrics, CompanyProfile } from './dto/dashboard.type';
 import { CohortService } from './cohort.service';
 import { GqlAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
-import { AuthenticatedUser, CurrentUser } from '../auth/current-user.decorator';
+import { CurrentUser } from '../auth/current-user.decorator';
+import type { AuthenticatedUser } from '../auth/current-user.decorator';
 import { Roles } from '../auth/roles.decorator';
 
 @Resolver(() => Cohort)

@@ -90,3 +90,29 @@ export class Cohort {
   joinedSession?: CohortSession;
 }
 
+@ObjectType()
+export class PublicCohort {
+  @Field(() => ID)
+  id: string;
+
+  @Field()
+  name: string;
+
+  @Field(() => Date)
+  startDate: Date;
+
+  @Field(() => Date)
+  endDate: Date;
+
+  @Field()
+  isActive: boolean;
+
+  @Field(() => Int, { nullable: true })
+  durationMonths?: number;
+
+  @Field(() => [CohortSession], { nullable: true })
+  sessions?: CohortSession[];
+
+  @Field(() => CohortSession, { nullable: true })
+  joinedSession?: CohortSession;
+}

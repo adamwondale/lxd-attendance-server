@@ -26,11 +26,28 @@ export class AttendanceService {
     return `${get('year')}-${get('month')}-${get('day')}`;
   }
 
-  private getExpectedTime(now: Date, startTime: string, graceMinutes: number) {
+  private getLocalClock(now: Date, timezone: string) {
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      timeZone: timezone,
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23',
+    }).formatToParts(now);
+    const get = (type: string) => Number(parts.find(p => p.type === type)?.value || 0);
+    return { hour: get('hour'), minute: get('minute') };
+  }
+
+  private getCurrentDay(now: Date, timezone: string) {
+    const weekday = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      weekday: 'short',
+    }).format(now).toUpperCase();
+    return weekday.slice(0, 3);
+  }
+
+  private getExpectedMinutes(startTime: string, graceMinutes: number) {
     const [hours, minutes] = startTime.split(':').map(Number);
-    const expected = new Date(now);
-    expected.setUTCHours(hours - 3, minutes + graceMinutes, 0, 0);
-    return expected;
+    return hours * 60 + minutes + graceMinutes;
   }
 
   private calculatePenalty(latenessMinutes: number, session: any) {
@@ -105,23 +122,51 @@ export class AttendanceService {
     return this.processAttendance(traineeId, membership.sessionId!, membership.session, deviceSignature, false);
   }
 
-  async adminLogAttendance(studentId: string, sessionId: string) {
+  async assertSessionAccess(userId: string, tenantId: string, role: string | undefined, sessionId: string) {
+    const session = await this.prisma.cohortSession.findFirst({
+      where: {
+        id: sessionId,
+        cohort: { tenantId },
+      },
+      select: { id: true },
+    });
+    if (!session) throw new ForbiddenException('Session is not accessible for this tenant.');
+
+    if (role === 'STUDENT') {
+      const membership = await this.prisma.cohortMembership.findFirst({
+        where: { userId, sessionId, status: 'ACTIVE', cohort: { tenantId } },
+        select: { id: true },
+      });
+      if (!membership) throw new ForbiddenException('You are not enrolled in this session.');
+      return true;
+    }
+
+    if (!['COORDINATOR', 'SUPER_ADMIN', 'ADMIN'].includes(role || '')) {
+      throw new ForbiddenException('You are not authorized for this session.');
+    }
+    return true;
+  }
+
+  async adminLogAttendance(tenantId: string, studentId: string, sessionId: string) {
+    await this.assertSessionAccess(studentId, tenantId, 'STUDENT', sessionId);
     return this.processAttendance(studentId, sessionId, undefined, undefined, true);
   }
 
-  async adminScanStudentBadge(badgeCode: string) {
+  async adminScanStudentBadge(tenantId: string, badgeCode: string) {
     const studentId = this.qrService.verifyStudentQr(badgeCode);
     const memberships = await this.prisma.cohortMembership.findMany({
-      where: { userId: studentId, status: 'ACTIVE' },
+      where: { userId: studentId, status: 'ACTIVE', cohort: { tenantId, isActive: true } },
       include: { session: { include: { cohort: { include: { tenant: true } } } } }
     });
     if (!memberships.length) throw new BadRequestException('Student is not enrolled in any active cohorts.');
 
     const now = new Date();
-    const currentDay = DAY_NAMES[now.getDay()];
+    const currentDayByTimezone = (timezone: string) => this.getCurrentDay(now, timezone);
     const active = memberships.find(m => {
       const session = m.session;
       if (!session) return false;
+      const timezone = session.cohort?.tenant?.timezone || 'Africa/Addis_Ababa';
+      const currentDay = currentDayByTimezone(timezone);
       const days = this.normalizeDays(session.recurrenceDays);
       return !days.length || days.includes('EVERYDAY') || days.includes('ALL') || days.includes(currentDay);
     });
@@ -147,34 +192,30 @@ export class AttendanceService {
     });
     if (!session) throw new BadRequestException('Session not found');
 
-    const currentDay = DAY_NAMES[now.getDay()];
+    const currentDay = this.getCurrentDay(now, timezone);
     const days = this.normalizeDays(session.recurrenceDays);
     if (days.length && !days.includes('EVERYDAY') && !days.includes('ALL') && !days.includes(currentDay)) {
       throw new BadRequestException(`This session does not run on ${currentDay}`);
     }
 
-    const expectedTime = this.getExpectedTime(now, session.startTime, session.gracePeriodMinutes);
-    const isLate = now.getTime() > expectedTime.getTime();
-    const latenessMinutes = isLate ? Math.floor((now.getTime() - expectedTime.getTime()) / 60000) : 0;
+    const localClock = this.getLocalClock(now, timezone);
+    const startMinutes = this.getExpectedMinutes(session.startTime, 0);
+    const expectedMinutes = this.getExpectedMinutes(session.startTime, session.gracePeriodMinutes);
+    let currentMinutes = localClock.hour * 60 + localClock.minute;
+    if (expectedMinutes >= 24 * 60 && currentMinutes < startMinutes) currentMinutes += 24 * 60;
+    const latenessMinutes = Math.max(0, currentMinutes - expectedMinutes);
+    const isLate = latenessMinutes > 0;
     const calculatedPenalty = this.calculatePenalty(latenessMinutes, session);
 
+    if (!isManualScan) await this.lockDevice(deviceSignature);
+
+    let log;
     try {
-      const log = await this.prisma.attendanceLog.create({
+      log = await this.prisma.attendanceLog.create({
         data: {
           sessionId, userId, date: dateStr, isLate, latenessMinutes,
           calculatedPenalty, deviceSignature: deviceSignature || null, isManualScan,
         },
-        include: { user: { select: { id: true, name: true, email: true } }, penalty: true, session: true },
-      });
-
-      if (calculatedPenalty > 0) {
-        await this.prisma.penalty.create({
-          data: { attendanceLogId: log.id, userId, amount: calculatedPenalty },
-        });
-      }
-      if (!isManualScan) await this.lockDevice(deviceSignature);
-      return this.prisma.attendanceLog.findUnique({
-        where: { id: log.id },
         include: { user: { select: { id: true, name: true, email: true } }, penalty: true, session: true },
       });
     } catch (error) {
@@ -186,6 +227,17 @@ export class AttendanceService {
       }
       throw error;
     }
+
+    if (calculatedPenalty > 0) {
+      await this.prisma.penalty.create({
+        data: { attendanceLogId: log.id, userId, amount: calculatedPenalty },
+      });
+    }
+
+    return this.prisma.attendanceLog.findUnique({
+      where: { id: log.id },
+      include: { user: { select: { id: true, name: true, email: true } }, penalty: true, session: true },
+    });
   }
 
   async getMyAttendanceSummary(userId: string) {
@@ -262,7 +314,7 @@ export class AttendanceService {
       for (const membership of memberships) {
         if (!membership.session) continue;
         const days = this.normalizeDays(membership.session.recurrenceDays);
-        if (days.length && !days.includes('ALL') && !days.includes('EVE') && !days.includes(day)) continue;
+        if (days.length && !days.includes('EVERYDAY') && !days.includes('ALL') && !days.includes(day)) continue;
         const log = logMap.get(`${membership.session.id}|${membership.userId}|${date}`);
         rows.push({
           id: log?.id || `absent-${membership.session.id}-${membership.userId}-${date}`,
@@ -280,7 +332,12 @@ export class AttendanceService {
     return rows;
   }
 
-  async waivePenalty(penaltyId: string) {
-    return this.prisma.penalty.update({ where: { id: penaltyId }, data: { status: 'WAIVED' } });
+  async waivePenalty(penaltyId: string, tenantId: string) {
+    const penalty = await this.prisma.penalty.findFirst({
+      where: { id: penaltyId, attendanceLog: { session: { cohort: { tenantId } } } },
+      select: { id: true },
+    });
+    if (!penalty) throw new ForbiddenException('Penalty is not accessible for this tenant.');
+    return this.prisma.penalty.update({ where: { id: penalty.id }, data: { status: 'WAIVED' } });
   }
 }

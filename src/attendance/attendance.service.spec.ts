@@ -16,9 +16,10 @@ describe('AttendanceService (ATTEND tests)', () => {
     qrServiceMock = {
       generateQr: jest.fn(),
       verifyQr: jest.fn(),
+      verifyStudentQr: jest.fn(),
     } as any;
 
-    const module: TestingModule = await Test.createTestingModule({
+    const testingModule: TestingModule = await Test.createTestingModule({
       providers: [
         AttendanceService,
         { provide: PrismaService, useValue: prismaMock },
@@ -26,7 +27,7 @@ describe('AttendanceService (ATTEND tests)', () => {
       ],
     }).compile();
 
-    service = module.get<AttendanceService>(AttendanceService);
+    service = testingModule.get<AttendanceService>(AttendanceService);
   });
 
   const userId = 'student-1';
@@ -54,7 +55,18 @@ describe('AttendanceService (ATTEND tests)', () => {
       cohort: { latePenaltyAmount: 25 },
     } as any);
     prismaMock.cohortMembership.findUnique.mockResolvedValue({
+      id: 'membership-1',
       sessionId,
+      userId,
+      cohortId: 'cohort-1',
+      status: 'ACTIVE',
+      session: {
+        ...mockSessionBase,
+        cohort: {
+          tenantId: 'tenant1',
+          timezone: 'Africa/Addis_Ababa',
+        },
+      },
     } as any);
   });
 
@@ -62,6 +74,7 @@ describe('AttendanceService (ATTEND tests)', () => {
     it('ATTEND-01: Valid QR code logs attendance successfully', async () => {
       qrServiceMock.verifyQr.mockReturnValue(true);
       prismaMock.attendanceLog.create.mockResolvedValue(mockLog as any);
+      prismaMock.attendanceLog.findUnique.mockResolvedValueOnce(null).mockResolvedValue(mockLog as any);
 
       const result = await service.logAttendance(userId, validQr);
 
@@ -74,10 +87,11 @@ describe('AttendanceService (ATTEND tests)', () => {
 
     it('ATTEND-01b: Throws BadRequestException if session does not exist (No Demo Fallback)', async () => {
       qrServiceMock.verifyQr.mockReturnValue(true);
-      prismaMock.cohortSession.findUnique.mockResolvedValue(null); // Simulate session not found
+      prismaMock.cohortMembership.findUnique.mockResolvedValue(null);
+      prismaMock.cohortSession.findUnique.mockResolvedValue(null);
 
       await expect(service.logAttendance(userId, validQr)).rejects.toThrow(BadRequestException);
-      expect(prismaMock.cohort.findUnique).not.toHaveBeenCalled(); // Ensure fallback is completely removed
+      expect(prismaMock.cohort.findUnique).not.toHaveBeenCalled();
     });
 
     it('ATTEND-04: Duplicate scan (P2002) is handled gracefully', async () => {
@@ -189,6 +203,36 @@ describe('AttendanceService (ATTEND tests)', () => {
         })
       );
       expect(prismaMock.penalty.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Tenant isolation for administrative mutations', () => {
+    it('rejects waivePenalty for another tenant', async () => {
+      prismaMock.penalty.findFirst.mockResolvedValue(null);
+
+      await expect(service.waivePenalty('penalty-1', 'tenant-1')).rejects.toThrow(
+        'Penalty is not accessible for this tenant.',
+      );
+      expect(prismaMock.penalty.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects adminLogAttendance when the session is outside the tenant', async () => {
+      prismaMock.cohortSession.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.adminLogAttendance('tenant-1', 'student-1', 'session-1'),
+      ).rejects.toThrow('Session is not accessible for this tenant.');
+      expect(prismaMock.attendanceLog.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects adminScanStudentBadge when the student has no membership in the tenant', async () => {
+      qrServiceMock.verifyQr.mockReturnValue(true);
+      qrServiceMock.verifyStudentQr.mockReturnValue('student-1');
+      prismaMock.cohortMembership.findMany.mockResolvedValue([]);
+
+      await expect(
+        service.adminScanStudentBadge('tenant-1', 'student-1.signature'),
+      ).rejects.toThrow('Student is not enrolled in any active cohorts.');
     });
   });
 

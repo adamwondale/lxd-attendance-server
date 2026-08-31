@@ -4,7 +4,7 @@ import { AttendanceService } from './attendance.service';
 import { GqlAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
-import { CurrentUser } from '../auth/current-user.decorator';
+import { AuthenticatedUser, CurrentUser } from '../auth/current-user.decorator';
 import { PubSub } from 'graphql-subscriptions';
 import { AttendanceLog, AttendanceEvent, AttendanceReportRow, StudentAttendanceSummary, Penalty } from './dto/attendance.type';
 
@@ -48,8 +48,11 @@ export class AttendanceResolver {
   @Mutation(() => Penalty)
   @UseGuards(GqlAuthGuard, RolesGuard)
   @Roles('COORDINATOR', 'SUPER_ADMIN', 'ADMIN')
-  async waivePenalty(@Args('penaltyId') penaltyId: string) {
-    const penalty = await this.attendanceService.waivePenalty(penaltyId);
+  async waivePenalty(
+    @CurrentUser() user: AuthenticatedUser,
+    @Args('penaltyId') penaltyId: string,
+  ) {
+    const penalty = await this.attendanceService.waivePenalty(penaltyId, user.tenantId!);
     this.pubSub.publish('attendanceUpdated', { onAttendanceUpdated: true });
     return penalty;
   }
@@ -69,14 +72,16 @@ export class AttendanceResolver {
   }
 
   @Mutation(() => String)
+  @UseGuards(GqlAuthGuard)
   async logAttendanceById(
-    @Args('traineeId') traineeId: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Args('traineeId') _traineeId: string,
     @Args('qrCode') qrCode: string,
     @Args('deviceSignature', { nullable: true }) deviceSignature?: string,
   ) {
     const parts = qrCode.split('.');
     const cohortId = parts[0] || '';
-    const log: any = await this.attendanceService.logAttendanceById(traineeId, qrCode, deviceSignature);
+    const log: any = await this.attendanceService.logAttendanceById(user.userId, qrCode, deviceSignature);
     if (log) this.publishAttendance(log, cohortId);
     return log.id;
   }
@@ -84,8 +89,12 @@ export class AttendanceResolver {
   @Mutation(() => String)
   @UseGuards(GqlAuthGuard, RolesGuard)
   @Roles('COORDINATOR', 'SUPER_ADMIN', 'ADMIN')
-  async adminLogAttendance(@Args('studentId') studentId: string, @Args('sessionId') sessionId: string) {
-    const log: any = await this.attendanceService.adminLogAttendance(studentId, sessionId);
+  async adminLogAttendance(
+    @CurrentUser() user: AuthenticatedUser,
+    @Args('studentId') studentId: string,
+    @Args('sessionId') sessionId: string,
+  ) {
+    const log: any = await this.attendanceService.adminLogAttendance(user.tenantId!, studentId, sessionId);
     if (log) this.publishAttendance(log, log.session?.cohortId || '');
     return log.id;
   }
@@ -93,8 +102,11 @@ export class AttendanceResolver {
   @Mutation(() => String)
   @UseGuards(GqlAuthGuard, RolesGuard)
   @Roles('COORDINATOR', 'SUPER_ADMIN', 'ADMIN')
-  async adminScanStudentBadge(@Args('badgeCode') badgeCode: string) {
-    const log: any = await this.attendanceService.adminScanStudentBadge(badgeCode);
+  async adminScanStudentBadge(
+    @CurrentUser() user: AuthenticatedUser,
+    @Args('badgeCode') badgeCode: string,
+  ) {
+    const log: any = await this.attendanceService.adminScanStudentBadge(user.tenantId!, badgeCode);
     if (log) this.publishAttendance(log, log.session?.cohortId || '');
     return log.id;
   }
@@ -119,7 +131,12 @@ export class AttendanceResolver {
     filter: (payload: any, variables: any) => payload.attendanceLogged.sessionId === variables.sessionId,
     resolve: (payload: any) => payload.attendanceLogged,
   })
-  attendanceLogged(@Args('sessionId') sessionId: string) {
+  @UseGuards(GqlAuthGuard)
+  async attendanceLogged(
+    @CurrentUser() user: AuthenticatedUser,
+    @Args('sessionId') sessionId: string,
+  ) {
+    await this.attendanceService.assertSessionAccess(user.userId, user.tenantId!, user.role, sessionId);
     return (this.pubSub as any).asyncIterableIterator('attendanceLogged');
   }
 

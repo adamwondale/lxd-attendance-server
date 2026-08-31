@@ -34,83 +34,131 @@ export class UsersService {
     });
   }
 
-  async adminCreateStudent(name: string, email: string, phone: string, username: string, password: string, cohortId?: string, sessionId?: string) {
-    const existing = await this.prisma.user.findFirst({ where: { OR: [{ email }, { username }, ...(phone ? [{ phone }] : [])] } });
+  async adminCreateStudent(
+    tenantId: string,
+    name: string,
+    email: string,
+    phone: string,
+    username: string,
+    password: string,
+    cohortId?: string,
+    sessionId?: string,
+  ) {
+    const existing = await this.prisma.user.findFirst({
+      where: { OR: [{ email }, { username }, ...(phone ? [{ phone }] : [])] },
+    });
     if (existing) throw new Error('A student with that email, username, or phone already exists');
+
+    let cohort: { id: string; tenantId: string; isActive: boolean } | null = null;
+    let session: { id: string; cohortId: string } | null = null;
+
+    if (cohortId || sessionId) {
+      if (!cohortId || !sessionId) throw new Error('Cohort and session are required together');
+      cohort = await this.prisma.cohort.findFirst({
+        where: { id: cohortId, tenantId },
+        select: { id: true, tenantId: true, isActive: true },
+      });
+      session = await this.prisma.cohortSession.findFirst({
+        where: { id: sessionId, cohort: { tenantId } },
+        select: { id: true, cohortId: true },
+      });
+      if (!cohort || !cohort.isActive || !session || session.cohortId !== cohortId) {
+        throw new Error('Invalid cohort or session');
+      }
+    }
+
     const bcrypt = await import('bcrypt');
     const hashed = await bcrypt.hash(password, 10);
-    const user = await this.prisma.user.create({ data: { name, email, phone, username, password: hashed } });
-    if (cohortId && sessionId) {
-      const cohort = await this.prisma.cohort.findUnique({ where: { id: cohortId } });
-      const session = await this.prisma.cohortSession.findUnique({ where: { id: sessionId } });
-      if (!cohort || !cohort.isActive || !session || session.cohortId !== cohortId) throw new Error('Invalid cohort or session');
-      await this.prisma.cohortMembership.create({ data: { userId: user.id, cohortId, sessionId, status: 'ACTIVE' } });
-      await this.prisma.userTenantRole.create({ data: { userId: user.id, tenantId: cohort.tenantId, role: 'STUDENT' } });
-    }
-    return user;
+
+    return this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: { name, email, phone, username, password: hashed },
+      });
+
+      await tx.userTenantRole.create({
+        data: { userId: user.id, tenantId, role: 'STUDENT' },
+      });
+
+      if (cohort && session) {
+        await tx.cohortMembership.create({
+          data: { userId: user.id, cohortId: cohort.id, sessionId: session.id, status: 'ACTIVE' },
+        });
+      }
+
+      return user;
+    });
   }
 
-  async adminUpdateStudent(id: string, name?: string, email?: string) {
-    const data: any = {};
+  async adminUpdateStudent(tenantId: string, id: string, name?: string, email?: string) {
+    const data: Record<string, string> = {};
     if (name !== undefined) data.name = name;
     if (email !== undefined) data.email = email;
 
-    return this.prisma.user.update({
-      where: { id },
+    const result = await this.prisma.user.updateMany({
+      where: { id, tenants: { some: { tenantId, role: 'STUDENT' } } },
       data,
     });
+    if (!result.count) throw new Error('Student not found in this tenant');
+    return this.prisma.user.findUnique({ where: { id } });
   }
 
-  async adminDeleteStudent(id: string) {
-    // Soft-delete or hard-delete. For demo, we just remove the UserTenantRole so they don't show up in the tenant.
-    await this.prisma.userTenantRole.deleteMany({
-      where: { userId: id, role: 'STUDENT' },
+  async adminDeleteStudent(tenantId: string, id: string) {
+    const result = await this.prisma.userTenantRole.deleteMany({
+      where: { userId: id, tenantId, role: 'STUDENT' },
     });
-
-    // Optionally we could delete the user if they have no other roles, but keeping it safe for the demo.
+    if (!result.count) throw new Error('Student not found in this tenant');
     return true;
   }
 
-  async adminEnrollStudent(userId: string, cohortId: string, sessionId: string) {
+  async adminEnrollStudent(tenantId: string, userId: string, cohortId: string, sessionId: string) {
+    const [student, cohort, session] = await Promise.all([
+      this.prisma.userTenantRole.findFirst({ where: { userId, tenantId, role: 'STUDENT' } }),
+      this.prisma.cohort.findFirst({ where: { id: cohortId, tenantId }, select: { id: true, isActive: true } }),
+      this.prisma.cohortSession.findFirst({ where: { id: sessionId, cohort: { tenantId } }, select: { id: true, cohortId: true } }),
+    ]);
+    if (!student || !cohort || !cohort.isActive || !session || session.cohortId !== cohortId) {
+      throw new Error('User, cohort, or session is not valid for this tenant');
+    }
     return this.prisma.cohortMembership.create({
-      data: {
-        userId,
-        cohortId,
-        sessionId,
-        status: 'ACTIVE',
-      },
+      data: { userId, cohortId, sessionId, status: 'ACTIVE' },
     });
   }
 
-  async adminUpdateStudentMembership(userId: string, cohortId: string, sessionId: string) {
-    return this.prisma.cohortMembership.update({
-      where: {
-        cohortId_userId: {
-          cohortId,
-          userId,
-        },
-      },
-      data: {
-        sessionId,
-      },
-    });
-  }
+  async adminUpdateStudentMembership(tenantId: string, userId: string, cohortId: string, sessionId: string) {
+    const [student, cohort, session] = await Promise.all([
+      this.prisma.userTenantRole.findFirst({ where: { userId, tenantId, role: 'STUDENT' } }),
+      this.prisma.cohort.findFirst({ where: { id: cohortId, tenantId }, select: { id: true } }),
+      this.prisma.cohortSession.findFirst({ where: { id: sessionId, cohort: { tenantId } }, select: { id: true, cohortId: true } }),
+    ]);
+    if (!student || !cohort || !session || session.cohortId !== cohortId) {
+      throw new Error('User, cohort, or session is not valid for this tenant');
+    }
 
-  async adminRemoveStudentFromCohort(userId: string, cohortId: string) {
-    await this.prisma.cohortMembership.delete({
-      where: {
-        cohortId_userId: {
-          cohortId,
-          userId,
-        },
-      },
+    const result = await this.prisma.cohortMembership.updateMany({
+      where: { cohortId, userId, cohort: { tenantId } },
+      data: { sessionId },
     });
+    if (!result.count) throw new Error('Student membership not found in this tenant');
     return true;
   }
 
-  async getMemberships(userId: string) {
+  async adminRemoveStudentFromCohort(tenantId: string, userId: string, cohortId: string) {
+    const [student, cohort] = await Promise.all([
+      this.prisma.userTenantRole.findFirst({ where: { userId, tenantId, role: 'STUDENT' } }),
+      this.prisma.cohort.findFirst({ where: { id: cohortId, tenantId }, select: { id: true } }),
+    ]);
+    if (!student || !cohort) throw new Error('User or cohort is not valid for this tenant');
+
+    const result = await this.prisma.cohortMembership.deleteMany({
+      where: { cohortId, userId, cohort: { tenantId } },
+    });
+    if (!result.count) throw new Error('Student membership not found in this tenant');
+    return true;
+  }
+
+  async getMemberships(userId: string, tenantId?: string) {
     return this.prisma.cohortMembership.findMany({
-      where: { userId },
+      where: { userId, ...(tenantId ? { cohort: { tenantId } } : {}) },
       include: {
         cohort: true,
         session: true,

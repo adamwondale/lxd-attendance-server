@@ -1,12 +1,12 @@
 import { Resolver, Mutation, Query, Args, Int, Subscription, ResolveField, Parent } from '@nestjs/graphql';
 import { UseGuards, Inject } from '@nestjs/common';
 import { PubSub } from 'graphql-subscriptions';
-import { Cohort, CohortSession } from './dto/cohort.type';
+import { Cohort, CohortSession, PublicCohort } from './dto/cohort.type';
 import { DashboardMetrics, CompanyProfile } from './dto/dashboard.type';
 import { CohortService } from './cohort.service';
 import { GqlAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
-import { CurrentUser } from '../auth/current-user.decorator';
+import { AuthenticatedUser, CurrentUser } from '../auth/current-user.decorator';
 import { Roles } from '../auth/roles.decorator';
 
 @Resolver(() => Cohort)
@@ -28,7 +28,7 @@ export class CohortResolver {
     @Args('durationMonths', { type: () => Int, nullable: true }) durationMonths?: number,
   ) {
     const cohort = await this.cohortService.createCohort(
-      user.userId,
+      user.tenantId!,
       name,
       pin,
       new Date(startDate),
@@ -43,6 +43,7 @@ export class CohortResolver {
   @UseGuards(GqlAuthGuard, RolesGuard)
   @Roles('COORDINATOR', 'SUPER_ADMIN', 'ADMIN')
   async updateCohort(
+    @CurrentUser() user: AuthenticatedUser,
     @Args('cohortId') cohortId: string,
     @Args('name', { nullable: true }) name?: string,
     @Args('pin', { nullable: true }) pin?: string,
@@ -52,6 +53,7 @@ export class CohortResolver {
     @Args('durationMonths', { type: () => Int, nullable: true }) durationMonths?: number,
   ) {
     const cohort = await this.cohortService.updateCohort(
+      user.tenantId!,
       cohortId,
       name,
       pin,
@@ -68,9 +70,10 @@ export class CohortResolver {
   @UseGuards(GqlAuthGuard, RolesGuard)
   @Roles('COORDINATOR', 'SUPER_ADMIN', 'ADMIN')
   async deleteCohort(
+    @CurrentUser() user: AuthenticatedUser,
     @Args('cohortId') cohortId: string,
   ) {
-    const deleted = await this.cohortService.deleteCohort(cohortId);
+    const deleted = await this.cohortService.deleteCohort(user.tenantId!, cohortId);
     if (deleted) {
       this.pubSub.publish('cohortsUpdated', { onCohortsUpdated: true });
     }
@@ -81,6 +84,7 @@ export class CohortResolver {
   @UseGuards(GqlAuthGuard, RolesGuard)
   @Roles('COORDINATOR', 'SUPER_ADMIN', 'ADMIN')
   async createCohortSession(
+    @CurrentUser() user: AuthenticatedUser,
     @Args('cohortId') cohortId: string,
     @Args('name') name: string,
     @Args('startTime') startTime: string,
@@ -92,6 +96,7 @@ export class CohortResolver {
     @Args('escalationIntervalMinutes', { type: () => Int, nullable: true }) escalationIntervalMinutes?: number,
   ) {
     const session = await this.cohortService.createCohortSession(
+      user.tenantId!,
       cohortId,
       name,
       startTime,
@@ -110,6 +115,7 @@ export class CohortResolver {
   @UseGuards(GqlAuthGuard, RolesGuard)
   @Roles('COORDINATOR', 'SUPER_ADMIN', 'ADMIN')
   async updateCohortSession(
+    @CurrentUser() user: AuthenticatedUser,
     @Args('sessionId') sessionId: string,
     @Args('name', { nullable: true }) name?: string,
     @Args('startTime', { nullable: true }) startTime?: string,
@@ -121,6 +127,7 @@ export class CohortResolver {
     @Args('escalationIntervalMinutes', { type: () => Int, nullable: true }) escalationIntervalMinutes?: number,
   ) {
     const session = await this.cohortService.updateCohortSession(
+      user.tenantId!,
       sessionId,
       name,
       startTime,
@@ -139,9 +146,10 @@ export class CohortResolver {
   @UseGuards(GqlAuthGuard, RolesGuard)
   @Roles('COORDINATOR', 'SUPER_ADMIN', 'ADMIN')
   async deleteCohortSession(
+    @CurrentUser() user: AuthenticatedUser,
     @Args('sessionId') sessionId: string,
   ) {
-    const deleted = await this.cohortService.deleteCohortSession(sessionId);
+    const deleted = await this.cohortService.deleteCohortSession(user.tenantId!, sessionId);
     if (deleted) {
       this.pubSub.publish('cohortsUpdated', { onCohortsUpdated: true });
     }
@@ -158,8 +166,8 @@ export class CohortResolver {
   @Query(() => Cohort, { nullable: true })
   @UseGuards(GqlAuthGuard, RolesGuard)
   @Roles('COORDINATOR', 'SUPER_ADMIN', 'ADMIN')
-  async cohortDetails(@Args('id') id: string) {
-    return this.cohortService.getCohortDetails(id);
+  async cohortDetails(@CurrentUser() user: AuthenticatedUser, @Args('id') id: string) {
+    return this.cohortService.getCohortDetails(user.tenantId!, id);
   }
 
   @Query(() => DashboardMetrics)
@@ -169,12 +177,12 @@ export class CohortResolver {
     return this.cohortService.getDashboardMetrics(user.userId);
   }
 
-  @Query(() => [Cohort])
+  @Query(() => [PublicCohort])
   async publicActiveCohorts() {
     return this.cohortService.publicActiveCohorts();
   }
 
-  @Query(() => [Cohort])
+  @Query(() => [PublicCohort])
   @UseGuards(GqlAuthGuard)
   async availableCohorts(@CurrentUser() user: any) {
     return this.cohortService.availableCohorts(user.userId);

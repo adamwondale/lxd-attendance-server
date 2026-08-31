@@ -3,13 +3,16 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PrismaService } from '../prisma/prisma.service';
 
+const jwtSecret = process.env.JWT_SECRET?.trim();
+
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(private readonly prisma: PrismaService) {
+    if (!jwtSecret) throw new Error('JWT_SECRET must be set and non-empty at startup.');
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: process.env.JWT_SECRET || 'QtNDNr4Ii0x1Zaqw8geuV1ZE1wxhSqOSMCH9URZIXwS',
+      secretOrKey: jwtSecret,
     });
   }
 

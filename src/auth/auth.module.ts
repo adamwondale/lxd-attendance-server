@@ -7,12 +7,17 @@ import { AuthService } from './auth.service';
 import { AuthResolver } from './auth.resolver';
 import { PrismaModule } from '../prisma/prisma.module';
 
+const jwtSecret = process.env.JWT_SECRET?.trim();
+if (!jwtSecret) {
+  throw new Error('JWT_SECRET must be set and non-empty at startup.');
+}
+
 @Module({
   imports: [
     PassportModule,
     PrismaModule,
     JwtModule.register({
-      secret: process.env.JWT_SECRET || 'QtNDNr4Ii0x1Zaqw8geuV1ZE1wxhSqOSMCH9URZIXwS',
+      secret: jwtSecret,
     }),
   ],
   providers: [JwtStrategy, GqlAuthGuard, AuthService, AuthResolver],

@@ -67,12 +67,20 @@ export class AuthService {
       if (!selectedCohort || !selectedCohort.isActive || selectedCohort.pin !== cohortPin || !session || session.cohortId !== cohortId) throw new BadRequestException('Invalid cohort, session or PIN');
     }
     const hashedPassword = await bcrypt.hash(passwordRaw, 10);
-    const user = await this.prisma.user.create({ data: { email, name, phone, username, password: hashedPassword } });
-    if (selectedCohort) {
-      await this.prisma.cohortMembership.create({ data: { userId: user.id, cohortId: selectedCohort.id, sessionId, status: 'ACTIVE' } });
-      await this.prisma.userTenantRole.create({ data: { userId: user.id, tenantId: selectedCohort.tenantId, role: 'STUDENT' } });
-    }
-    return user;
+    return this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: { email, name, phone, username, password: hashedPassword },
+      });
+      if (selectedCohort) {
+        await tx.cohortMembership.create({
+          data: { userId: user.id, cohortId: selectedCohort.id, sessionId, status: 'ACTIVE' },
+        });
+        await tx.userTenantRole.create({
+          data: { userId: user.id, tenantId: selectedCohort.tenantId, role: 'STUDENT' },
+        });
+      }
+      return user;
+    });
   }
 
   async loginStudent(identifier: string, passwordRaw: string) {

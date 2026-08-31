@@ -3,13 +3,36 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const client_1 = require("@prisma/client");
 const prisma = new client_1.PrismaClient();
 async function main() {
-    console.log('Running MongoDB migration to backfill endDate...');
+    console.log('Running MongoDB migration to backfill missing cohort endDate values...');
     const result = await prisma.$runCommandRaw({
         update: 'Cohort',
         updates: [
             {
-                q: { endDate: { $exists: false } },
-                u: { $set: { endDate: { $date: new Date().toISOString() } } },
+                q: { $or: [{ endDate: { $exists: false } }, { endDate: null }] },
+                u: [
+                    {
+                        $set: {
+                            durationMonths: {
+                                $cond: [
+                                    { $in: ['$durationMonths', [3, 6]] },
+                                    '$durationMonths',
+                                    3
+                                ]
+                            }
+                        }
+                    },
+                    {
+                        $set: {
+                            endDate: {
+                                $dateAdd: {
+                                    startDate: '$startDate',
+                                    unit: 'month',
+                                    amount: '$durationMonths'
+                                }
+                            }
+                        }
+                    }
+                ],
                 multi: true
             }
         ]
@@ -19,7 +42,7 @@ async function main() {
 main()
     .catch(e => {
     console.error(e);
-    process.exit(1);
+    process.exitCode = 1;
 })
     .finally(async () => {
     await prisma.$disconnect();

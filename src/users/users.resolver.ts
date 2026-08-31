@@ -4,7 +4,7 @@ import { UseGuards, Inject } from '@nestjs/common';
 import { PubSub } from 'graphql-subscriptions';
 import { GqlAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
-import { CurrentUser } from '../auth/current-user.decorator';
+import { AuthenticatedUser, CurrentUser } from '../auth/current-user.decorator';
 import { Roles } from '../auth/roles.decorator';
 import { UsersService } from './users.service';
 import { User } from './dto/user.type';
@@ -43,6 +43,7 @@ export class UsersResolver {
   @UseGuards(GqlAuthGuard, RolesGuard)
   @Roles('COORDINATOR', 'SUPER_ADMIN', 'ADMIN')
   async adminCreateStudent(
+    @CurrentUser() user: AuthenticatedUser,
     @Args('name') name: string,
     @Args('email') email: string,
     @Args('phone') phone: string,
@@ -51,7 +52,7 @@ export class UsersResolver {
     @Args('cohortId', { nullable: true }) cohortId?: string,
     @Args('sessionId', { nullable: true }) sessionId?: string,
   ) {
-    const created = await this.usersService.adminCreateStudent(name, email, phone, username, password, cohortId, sessionId);
+    const created = await this.usersService.adminCreateStudent(user.tenantId!, name, email, phone, username, password, cohortId, sessionId);
     this.pubSub.publish('studentsUpdated', { onStudentsUpdated: true });
     return created;
   }
@@ -60,11 +61,12 @@ export class UsersResolver {
   @UseGuards(GqlAuthGuard, RolesGuard)
   @Roles('COORDINATOR', 'SUPER_ADMIN', 'ADMIN')
   async adminUpdateStudent(
+    @CurrentUser() user: AuthenticatedUser,
     @Args('id') id: string,
     @Args('name', { nullable: true }) name?: string,
     @Args('email', { nullable: true }) email?: string,
   ) {
-    const updated = await this.usersService.adminUpdateStudent(id, name, email);
+    const updated = await this.usersService.adminUpdateStudent(user.tenantId!, id, name, email);
     this.pubSub.publish('studentsUpdated', { onStudentsUpdated: true });
     return updated;
   }
@@ -72,8 +74,8 @@ export class UsersResolver {
   @Mutation(() => Boolean)
   @UseGuards(GqlAuthGuard, RolesGuard)
   @Roles('COORDINATOR', 'SUPER_ADMIN', 'ADMIN')
-  async adminDeleteStudent(@Args('id') id: string) {
-    const deleted = await this.usersService.adminDeleteStudent(id);
+  async adminDeleteStudent(@CurrentUser() user: AuthenticatedUser, @Args('id') id: string) {
+    const deleted = await this.usersService.adminDeleteStudent(user.tenantId!, id);
     if (deleted) {
       this.pubSub.publish('studentsUpdated', { onStudentsUpdated: true });
     }
@@ -84,11 +86,12 @@ export class UsersResolver {
   @UseGuards(GqlAuthGuard, RolesGuard)
   @Roles('COORDINATOR', 'SUPER_ADMIN', 'ADMIN')
   async adminEnrollStudent(
+    @CurrentUser() user: AuthenticatedUser,
     @Args('userId') userId: string,
     @Args('cohortId') cohortId: string,
     @Args('sessionId') sessionId: string,
   ) {
-    await this.usersService.adminEnrollStudent(userId, cohortId, sessionId);
+    await this.usersService.adminEnrollStudent(user.tenantId!, userId, cohortId, sessionId);
     this.pubSub.publish('studentsUpdated', { onStudentsUpdated: true });
     return true;
   }
@@ -97,11 +100,12 @@ export class UsersResolver {
   @UseGuards(GqlAuthGuard, RolesGuard)
   @Roles('COORDINATOR', 'SUPER_ADMIN', 'ADMIN')
   async adminUpdateStudentMembership(
+    @CurrentUser() user: AuthenticatedUser,
     @Args('userId') userId: string,
     @Args('cohortId') cohortId: string,
     @Args('sessionId') sessionId: string,
   ) {
-    await this.usersService.adminUpdateStudentMembership(userId, cohortId, sessionId);
+    await this.usersService.adminUpdateStudentMembership(user.tenantId!, userId, cohortId, sessionId);
     this.pubSub.publish('studentsUpdated', { onStudentsUpdated: true });
     return true;
   }
@@ -110,10 +114,11 @@ export class UsersResolver {
   @UseGuards(GqlAuthGuard, RolesGuard)
   @Roles('COORDINATOR', 'SUPER_ADMIN', 'ADMIN')
   async adminRemoveStudentFromCohort(
+    @CurrentUser() user: AuthenticatedUser,
     @Args('userId') userId: string,
     @Args('cohortId') cohortId: string,
   ) {
-    await this.usersService.adminRemoveStudentFromCohort(userId, cohortId);
+    await this.usersService.adminRemoveStudentFromCohort(user.tenantId!, userId, cohortId);
     this.pubSub.publish('studentsUpdated', { onStudentsUpdated: true });
     return true;
   }
@@ -124,7 +129,7 @@ export class UsersResolver {
   }
 
   @ResolveField('memberships', () => [CohortMembership], { nullable: true })
-  async memberships(@Parent() user: User) {
-    return this.usersService.getMemberships(user.id);
+  async memberships(@Parent() user: User, @CurrentUser() currentUser: AuthenticatedUser) {
+    return this.usersService.getMemberships(user.id, currentUser.tenantId);
   }
 }

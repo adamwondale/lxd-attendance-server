@@ -5,20 +5,24 @@ import { PrismaService } from '../prisma/prisma.service';
 export class CohortService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async createCohort(
-    userId: string,
-    name: string,
-    pin: string,
-    startDate: Date,
-    endDate: Date,
-    durationMonths?: number,
-  ) {
+  private async getTenantId(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: { tenants: true },
     });
     const tenantId = user?.tenants?.[0]?.tenantId;
     if (!tenantId) throw new BadRequestException('User has no active tenant');
+    return tenantId;
+  }
+
+  async createCohort(
+    tenantId: string,
+    name: string,
+    pin: string,
+    startDate: Date,
+    endDate: Date,
+    durationMonths?: number,
+  ) {
     if (durationMonths !== undefined && ![3, 6].includes(durationMonths))
       throw new BadRequestException('Cohort duration must be 3 or 6 months');
 
@@ -41,6 +45,7 @@ export class CohortService {
   }
 
   async updateCohort(
+    tenantId: string,
     cohortId: string,
     name?: string,
     pin?: string,
@@ -49,13 +54,16 @@ export class CohortService {
     isActive?: boolean,
     durationMonths?: number,
   ) {
-    const cohort = await this.prisma.cohort.findUnique({
-      where: { id: cohortId },
+    if (durationMonths !== undefined && ![3, 6].includes(durationMonths))
+      throw new BadRequestException('Cohort duration must be 3 or 6 months');
+
+    const cohort = await this.prisma.cohort.findFirst({
+      where: { id: cohortId, tenantId },
     });
     if (!cohort) throw new BadRequestException('Cohort not found');
 
-    return this.prisma.cohort.update({
-      where: { id: cohortId },
+    const result = await this.prisma.cohort.updateMany({
+      where: { id: cohortId, tenantId },
       data: {
         ...(name !== undefined && { name }),
         ...(pin !== undefined && { pin }),
@@ -65,24 +73,21 @@ export class CohortService {
         ...(durationMonths !== undefined && { durationMonths }),
       },
     });
+    if (!result.count) throw new BadRequestException('Cohort not found');
+    return this.prisma.cohort.findUnique({ where: { id: cohortId } });
   }
 
-  async deleteCohort(cohortId: string) {
-    const cohort = await this.prisma.cohort.findUnique({
-      where: { id: cohortId },
-    });
-    if (!cohort) throw new BadRequestException('Cohort not found');
-
-    // Soft delete cohort
-    await this.prisma.cohort.update({
-      where: { id: cohortId },
+  async deleteCohort(tenantId: string, cohortId: string) {
+    const result = await this.prisma.cohort.updateMany({
+      where: { id: cohortId, tenantId },
       data: { isActive: false },
     });
-
+    if (!result.count) throw new BadRequestException('Cohort not found');
     return true;
   }
 
   async createCohortSession(
+    tenantId: string,
     cohortId: string,
     name: string,
     startTime: string,
@@ -93,8 +98,8 @@ export class CohortService {
     escalationRate = 5,
     escalationIntervalMinutes = 5,
   ) {
-    const cohort = await this.prisma.cohort.findUnique({
-      where: { id: cohortId },
+    const cohort = await this.prisma.cohort.findFirst({
+      where: { id: cohortId, tenantId },
     });
     if (!cohort) throw new BadRequestException('Cohort not found');
 
@@ -114,6 +119,7 @@ export class CohortService {
   }
 
   async updateCohortSession(
+    tenantId: string,
     sessionId: string,
     name?: string,
     startTime?: string,
@@ -124,8 +130,8 @@ export class CohortService {
     escalationRate?: number,
     escalationIntervalMinutes?: number,
   ) {
-    const session = await this.prisma.cohortSession.findUnique({
-      where: { id: sessionId },
+    const session = await this.prisma.cohortSession.findFirst({
+      where: { id: sessionId, cohort: { tenantId } },
     });
     if (!session) throw new BadRequestException('Session not found');
 
@@ -148,23 +154,16 @@ export class CohortService {
     });
   }
 
-  async deleteCohortSession(sessionId: string) {
-    const session = await this.prisma.cohortSession.findUnique({
-      where: { id: sessionId },
+  async deleteCohortSession(tenantId: string, sessionId: string) {
+    const result = await this.prisma.cohortSession.deleteMany({
+      where: { id: sessionId, cohort: { tenantId } },
     });
-    if (!session) throw new BadRequestException('Session not found');
-
-    await this.prisma.cohortSession.delete({ where: { id: sessionId } });
+    if (!result.count) throw new BadRequestException('Session not found');
     return true;
   }
 
   async listCohorts(userId: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      include: { tenants: true },
-    });
-    const tenantId = user?.tenants?.[0]?.tenantId;
-    if (!tenantId) throw new BadRequestException('User has no active tenant');
+    const tenantId = await this.getTenantId(userId);
 
     return this.prisma.cohort.findMany({
       where: { tenantId, isActive: true },
@@ -174,12 +173,7 @@ export class CohortService {
   }
 
   async getDashboardMetrics(userId: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      include: { tenants: true },
-    });
-    const tenantId = user?.tenants?.[0]?.tenantId;
-    if (!tenantId) throw new BadRequestException('User has no active tenant');
+    const tenantId = await this.getTenantId(userId);
 
     const activeCohorts = await this.prisma.cohort.count({
       where: { tenantId, isActive: true },
@@ -277,12 +271,6 @@ export class CohortService {
     adminName?: string,
     username?: string,
   ) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      include: { tenants: true },
-    });
-    const tenantId = user?.tenants?.[0]?.tenantId;
-    if (!tenantId) throw new BadRequestException('User has no active tenant');
     if (username && username !== user?.username) {
       const duplicate = await this.prisma.user.findFirst({
         where: { username, NOT: { id: userId } },
@@ -318,9 +306,9 @@ export class CohortService {
     return this.getCompanyProfile(userId);
   }
 
-  async getCohortDetails(cohortId: string) {
-    return this.prisma.cohort.findUnique({
-      where: { id: cohortId },
+  async getCohortDetails(tenantId: string, cohortId: string) {
+    return this.prisma.cohort.findFirst({
+      where: { id: cohortId, tenantId },
       include: {
         sessions: true,
         memberships: {
@@ -335,13 +323,20 @@ export class CohortService {
   async publicActiveCohorts() {
     return this.prisma.cohort.findMany({
       where: { isActive: true, endDate: { gte: new Date() } },
-      include: { sessions: true },
+      select: {
+        id: true,
+        name: true,
+        startDate: true,
+        endDate: true,
+        isActive: true,
+        durationMonths: true,
+        sessions: true,
+      },
       orderBy: { startDate: 'desc' },
     });
   }
 
   async availableCohorts(userId: string) {
-    // Return all active cohorts that the user is NOT already a member of
     return this.prisma.cohort.findMany({
       where: {
         isActive: true,
@@ -349,7 +344,15 @@ export class CohortService {
           none: { userId },
         },
       },
-      include: { sessions: true },
+      select: {
+        id: true,
+        name: true,
+        startDate: true,
+        endDate: true,
+        isActive: true,
+        durationMonths: true,
+        sessions: true,
+      },
       orderBy: { startDate: 'desc' },
     });
   }

@@ -2,6 +2,10 @@ import { Module } from '@nestjs/common';
 import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { join } from 'path';
+import { Request } from 'express';
+
+type GraphQLWsExtra = { request?: Request };
+type GraphQLContext = { req?: Request; extra?: GraphQLWsExtra };
 
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
@@ -17,9 +21,24 @@ import { PubSubModule } from './pubsub/pubsub.module';
       driver: ApolloDriver,
       autoSchemaFile: join(process.cwd(), 'src/schema.gql'),
       sortSchema: true,
-      context: ({ req }: any) => ({ req }),
+      context: ({ req, extra }: GraphQLContext) => ({
+        req: req ?? extra?.request,
+      }),
       subscriptions: {
-        'graphql-ws': true,
+        'graphql-ws': {
+          onConnect: ({ connectionParams, extra }: {
+            connectionParams?: Record<string, unknown>;
+            extra: GraphQLWsExtra;
+          }) => {
+            const authorization = connectionParams?.authorization;
+            if (typeof authorization !== 'string' || !authorization.startsWith('Bearer ')) {
+              throw new Error('Unauthorized');
+            }
+            extra.request = {
+              headers: { authorization },
+            } as Request;
+          },
+        },
       },
     }),
     PrismaModule,

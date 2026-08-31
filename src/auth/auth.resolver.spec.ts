@@ -11,14 +11,14 @@ describe('AuthResolver (Admin Registration)', () => {
       registerAdmin: jest.fn(),
     } as any;
 
-    const module: TestingModule = await Test.createTestingModule({
+    const testingModule: TestingModule = await Test.createTestingModule({
       providers: [
         AuthResolver,
         { provide: AuthService, useValue: authServiceMock },
       ],
     }).compile();
 
-    resolver = module.get<AuthResolver>(AuthResolver);
+    resolver = testingModule.get<AuthResolver>(AuthResolver);
   });
 
   it('AUTH-01: registerAdmin creates new super admin and tenant', async () => {
@@ -35,7 +35,10 @@ describe('AuthResolver (Admin Registration)', () => {
       'admin@example.com',
       'password123',
       'Super Admin',
-      'LXD Academy'
+      'LXD Academy',
+      undefined,
+      undefined,
+      undefined
     );
     expect(result).toBe('user-1');
   });

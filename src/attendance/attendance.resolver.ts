@@ -5,8 +5,6 @@ import { GqlAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 
-import { PrismaService } from '../prisma/prisma.service';
-import { PubSub } from 'graphql-subscriptions';
 import { CurrentUser, type AuthenticatedUser } from '../auth/current-user.decorator';
 import type { PubSub } from 'graphql-subscriptions';
 import { AttendanceLog, AttendanceEvent, AttendanceReportRow, StudentAttendanceSummary, Penalty } from './dto/attendance.type';

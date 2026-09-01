@@ -90,16 +90,26 @@ export class AttendanceService {
 
   async logAttendance(userId: string, qrCode: string, deviceSignature?: string) {
     const parts = qrCode.split('.');
-    if (parts.length !== 3) throw new BadRequestException('Invalid QR code format');
+    if (parts.length !== 3 && parts.length !== 4) throw new BadRequestException('Invalid QR code format');
     const cohortId = parts[0];
-    this.qrService.verifyQr(qrCode, cohortId);
+    const sessionId = parts.length === 4 ? parts[1] : undefined;
+    this.qrService.verifyQr(qrCode, cohortId, sessionId);
 
-    const membership = await this.prisma.cohortMembership.findUnique({
-      where: { cohortId_userId: { cohortId, userId } },
-      include: { session: { include: { cohort: { include: { tenant: true } } } } }
-    });
+    const membership = sessionId
+      ? await this.prisma.cohortMembership.findFirst({
+          where: { cohortId, userId, sessionId, status: 'ACTIVE' },
+          include: { session: { include: { cohort: { include: { tenant: true } } } } },
+        })
+      : await this.prisma.cohortMembership.findUnique({
+          where: { cohortId_userId: { cohortId, userId } },
+          include: { session: { include: { cohort: { include: { tenant: true } } } } }
+        });
     if (!membership || !membership.session) {
-      throw new BadRequestException('You are not enrolled in any session for this cohort');
+      throw new BadRequestException(
+        sessionId
+          ? 'You are not enrolled in this session for this cohort'
+          : 'You are not enrolled in any session for this cohort',
+      );
     }
 
     await this.assertDeviceAvailable(deviceSignature);
@@ -108,15 +118,21 @@ export class AttendanceService {
 
   async logAttendanceById(traineeId: string, qrCode: string, deviceSignature?: string) {
     const parts = qrCode.split('.');
-    if (parts.length !== 3) throw new BadRequestException('Invalid QR code format');
+    if (parts.length !== 3 && parts.length !== 4) throw new BadRequestException('Invalid QR code format');
     const cohortId = parts[0];
-    this.qrService.verifyQr(qrCode, cohortId);
+    const sessionId = parts.length === 4 ? parts[1] : undefined;
+    this.qrService.verifyQr(qrCode, cohortId, sessionId);
     const user = await this.prisma.user.findUnique({ where: { id: traineeId } });
     if (!user) throw new BadRequestException('Invalid trainee identifier provided.');
-    const membership = await this.prisma.cohortMembership.findUnique({
-      where: { cohortId_userId: { cohortId, userId: traineeId } },
-      include: { session: { include: { cohort: { include: { tenant: true } } } } }
-    });
+    const membership = sessionId
+      ? await this.prisma.cohortMembership.findFirst({
+          where: { cohortId, userId: traineeId, sessionId, status: 'ACTIVE' },
+          include: { session: { include: { cohort: { include: { tenant: true } } } } },
+        })
+      : await this.prisma.cohortMembership.findUnique({
+          where: { cohortId_userId: { cohortId, userId: traineeId } },
+          include: { session: { include: { cohort: { include: { tenant: true } } } } }
+        });
     if (!membership?.session) throw new BadRequestException('Trainee is not enrolled in this cohort.');
     await this.assertDeviceAvailable(deviceSignature);
     return this.processAttendance(traineeId, membership.sessionId!, membership.session, deviceSignature, false);

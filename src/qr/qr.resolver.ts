@@ -34,6 +34,31 @@ export class QrResolver {
   }
 
   @Query(() => String)
+  async projectorQr(
+    @Args('cohortId') cohortId: string,
+    @Args('sessionId', { nullable: true }) sessionId?: string,
+  ) {
+    const cohort = await this.prisma.cohort.findFirst({
+      where: {
+        id: cohortId,
+        isActive: true,
+        endDate: { gte: new Date() },
+      },
+      select: {
+        id: true,
+        sessions: { select: { id: true } },
+      },
+    });
+
+    if (!cohort) throw new ForbiddenException('Cohort is not active or does not exist.');
+    if (sessionId && !cohort.sessions.some((session) => session.id === sessionId)) {
+      throw new ForbiddenException('Session is not part of this cohort.');
+    }
+
+    return this.qrService.generateQr(cohort.id, sessionId);
+  }
+
+  @Query(() => String)
   @UseGuards(GqlAuthGuard, RolesGuard)
   async generateCohortQr(
     @CurrentUser() user: AuthenticatedUser,

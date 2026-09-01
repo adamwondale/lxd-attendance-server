@@ -32,6 +32,7 @@ import { PubSubModule } from './pubsub/pubsub.module';
             if (typeof authorization !== 'string' || !authorization.startsWith('Bearer ')) {
               throw new Error('Unauthorized');
             }
+            const extra = ctx.extra as unknown as GraphQLWsExtra;
             extra.request = {
               headers: { authorization },
             } as Request;

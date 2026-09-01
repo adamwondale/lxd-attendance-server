@@ -88,6 +88,17 @@ type Penalty {
   status: String!
 }
 
+type PublicCohort {
+  durationMonths: Int
+  endDate: DateTime!
+  id: ID!
+  isActive: Boolean!
+  joinedSession: CohortSession
+  name: String!
+  sessions: [CohortSession!]
+  startDate: DateTime!
+}
+
 type Query {
   availableCohorts: [Cohort!]!
   cohortDetails(id: String!): Cohort
@@ -99,6 +110,9 @@ type Query {
   me: User!
   myCohorts: [Cohort!]!
   myQrBadge: String!
+  projectorQr(cohortId: String!, sessionId: String): String!
+  projectorRecentScans(cohortId: String!, sessionId: String): [AttendanceEvent!]!
+  publicActiveCohorts: [PublicCohort!]!
   studentQrBadge(studentId: String!): String!
 }
 

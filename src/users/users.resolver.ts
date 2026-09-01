@@ -1,11 +1,10 @@
 import { Resolver, Query, Mutation, Args, Subscription, ResolveField, Parent } from '@nestjs/graphql';
 import { CohortMembership } from '../cohort/dto/cohort.type';
 import { UseGuards, Inject } from '@nestjs/common';
-import { PubSub } from 'graphql-subscriptions';
+import type { PubSub } from 'graphql-subscriptions';
 import { GqlAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
-import { CurrentUser } from '../auth/current-user.decorator';
-import type { AuthenticatedUser } from '../auth/current-user.decorator';
+import { CurrentUser, type AuthenticatedUser } from '../auth/current-user.decorator';
 import { Roles } from '../auth/roles.decorator';
 import { UsersService } from './users.service';
 import { User } from './dto/user.type';

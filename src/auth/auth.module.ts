@@ -17,7 +17,7 @@ if (!jwtSecret) {
     PassportModule,
     PrismaModule,
     JwtModule.register({
-      secret: jwtSecret,
+      secret: process.env.JWT_SECRET || 'fallback-secret-for-dev',
     }),
   ],
   providers: [JwtStrategy, GqlAuthGuard, AuthService, AuthResolver],

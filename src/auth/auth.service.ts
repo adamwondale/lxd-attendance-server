@@ -56,29 +56,25 @@ export class AuthService {
     return { accessToken: this.jwtService.sign(payload, { expiresIn: '7d' }) };
   }
 
-  async registerStudent(email: string, passwordRaw: string, name: string, phone: string, username: string, cohortId?: string, sessionId?: string, cohortPin?: string) {
-    const existing = await this.prisma.user.findFirst({ where: { OR: [{ email }, { phone }, { username }] } });
-    if (existing) throw new BadRequestException('User with that email, phone, or username already exists');
-    let selectedCohort: any = null;
-    if (cohortId || sessionId) {
-      if (!cohortId || !sessionId || !cohortPin) throw new BadRequestException('Cohort, session and cohort PIN are required for assignment');
-      selectedCohort = await this.prisma.cohort.findUnique({ where: { id: cohortId } });
-      const session = await this.prisma.cohortSession.findUnique({ where: { id: sessionId } });
-      if (!selectedCohort || !selectedCohort.isActive || selectedCohort.pin !== cohortPin || !session || session.cohortId !== cohortId) throw new BadRequestException('Invalid cohort, session or PIN');
+  async registerStudent(email: string, passwordRaw: string, name: string, phone: string, username: string) {
+    const orConditions: any[] = [{ email }];
+    if (phone) orConditions.push({ phone });
+    if (username) orConditions.push({ username });
+
+    const existing = await this.prisma.user.findFirst({
+      where: {
+        OR: orConditions
+      }
+    });
+    
+    if (existing) {
+      throw new BadRequestException('User with that email, phone, or username already exists');
     }
     const hashedPassword = await bcrypt.hash(passwordRaw, 10);
     return this.prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
         data: { email, name, phone, username, password: hashedPassword },
       });
-      if (selectedCohort) {
-        await tx.cohortMembership.create({
-          data: { userId: user.id, cohortId: selectedCohort.id, sessionId, status: 'ACTIVE' },
-        });
-        await tx.userTenantRole.create({
-          data: { userId: user.id, tenantId: selectedCohort.tenantId, role: 'STUDENT' },
-        });
-      }
       return user;
     });
   }

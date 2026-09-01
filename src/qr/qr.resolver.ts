@@ -4,8 +4,7 @@ import { QrService } from './qr.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { GqlAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
-import { CurrentUser } from '../auth/current-user.decorator';
-import type { AuthenticatedUser } from '../auth/current-user.decorator';
+import { CurrentUser, type AuthenticatedUser } from '../auth/current-user.decorator';
 
 @Resolver()
 export class QrResolver {

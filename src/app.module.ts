@@ -26,8 +26,9 @@ import { PubSubModule } from './pubsub/pubsub.module';
       }),
       subscriptions: {
         'graphql-ws': {
-          onConnect: (ctx) => {
-            const authorization = ctx.connectionParams?.authorization;
+          onConnect: (ctx: any) => {
+            const { connectionParams, extra } = ctx;
+            const authorization = connectionParams?.authorization;
             if (typeof authorization !== 'string' || !authorization.startsWith('Bearer ')) {
               throw new Error('Unauthorized');
             }

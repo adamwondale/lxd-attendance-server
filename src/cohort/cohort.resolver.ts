@@ -1,13 +1,12 @@
 import { Resolver, Mutation, Query, Args, Int, Subscription, ResolveField, Parent } from '@nestjs/graphql';
 import { UseGuards, Inject } from '@nestjs/common';
-import { PubSub } from 'graphql-subscriptions';
+import type { PubSub } from 'graphql-subscriptions';
 import { Cohort, CohortSession, PublicCohort } from './dto/cohort.type';
 import { DashboardMetrics, CompanyProfile } from './dto/dashboard.type';
 import { CohortService } from './cohort.service';
 import { GqlAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
-import { CurrentUser } from '../auth/current-user.decorator';
-import type { AuthenticatedUser } from '../auth/current-user.decorator';
+import { CurrentUser, type AuthenticatedUser } from '../auth/current-user.decorator';
 import { Roles } from '../auth/roles.decorator';
 
 @Resolver(() => Cohort)
@@ -64,7 +63,7 @@ export class CohortResolver {
       durationMonths
     );
     this.pubSub.publish('cohortsUpdated', { onCohortsUpdated: true });
-    return cohort.id;
+    return cohort!.id;
   }
 
   @Mutation(() => Boolean)

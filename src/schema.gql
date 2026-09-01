@@ -2,40 +2,12 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
 # ------------------------------------------------------
 
-type AttendanceEvent {
-  calculatedPenalty: Int!
-  cohortId: String!
-  date: String!
-  id: ID!
-  isLate: Boolean!
-  latenessMinutes: Int!
-  scannedAt: DateTime!
-  sessionId: String!
-  user: UserReference!
-}
-
 type AttendanceLog {
-  calculatedPenalty: Int!
-  date: String!
   id: ID!
   isLate: Boolean!
-  isManualScan: Boolean!
-  latenessMinutes: Int!
   penalty: Penalty
   scannedAt: DateTime!
   user: UserReference!
-}
-
-type AttendanceReportRow {
-  cohortName: String
-  date: String!
-  id: ID!
-  latenessMinutes: Int!
-  penalty: Int!
-  sessionName: String
-  status: String!
-  traineeId: String!
-  traineeName: String!
 }
 
 type AuthResponse {
@@ -43,7 +15,6 @@ type AuthResponse {
 }
 
 type Cohort {
-  durationMonths: Int
   endDate: DateTime!
   id: ID!
   isActive: Boolean!
@@ -67,9 +38,6 @@ type CohortMembership {
 
 type CohortSession {
   cohortId: String!
-  escalationIntervalMinutes: Int!
-  escalationRate: Int!
-  escalationThresholdMinutes: Int!
   gracePeriodMinutes: Int!
   id: ID!
   latePenaltyAmount: Int!
@@ -78,21 +46,8 @@ type CohortSession {
   startTime: String!
 }
 
-type CompanyProfile {
-  adminName: String
-  companyEmail: String
-  companyName: String!
-  companyPhone: String
-  id: String!
-  timezone: String!
-  username: String
-}
-
 type DashboardMetrics {
-  absentToday: Int!
   activeCohorts: Int!
-  lateToday: Int!
-  presentToday: Int!
   todayRevenue: Float!
   totalStudents: Int!
 }
@@ -103,7 +58,6 @@ A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date
 scalar DateTime
 
 type Mutation {
-  adminCreateStudent(cohortId: String, email: String!, name: String!, password: String!, phone: String!, sessionId: String, username: String!): User!
   adminDeleteStudent(id: String!): Boolean!
   adminEnrollStudent(cohortId: String!, sessionId: String!, userId: String!): Boolean!
   adminLogAttendance(sessionId: String!, studentId: String!): String!
@@ -111,21 +65,19 @@ type Mutation {
   adminScanStudentBadge(badgeCode: String!): String!
   adminUpdateStudent(email: String, id: String!, name: String): User!
   adminUpdateStudentMembership(cohortId: String!, sessionId: String!, userId: String!): Boolean!
-  createCohort(durationMonths: Int, endDate: String!, name: String!, pin: String!, startDate: String!): String!
-  createCohortSession(cohortId: String!, escalationIntervalMinutes: Int, escalationRate: Int, escalationThresholdMinutes: Int, gracePeriodMinutes: Int!, latePenaltyAmount: Int!, name: String!, recurrenceDays: [String!]!, startTime: String!): String!
+  createCohort(endDate: String!, name: String!, pin: String!, startDate: String!): String!
+  createCohortSession(cohortId: String!, gracePeriodMinutes: Int!, latePenaltyAmount: Int!, name: String!, recurrenceDays: [String!]!, startTime: String!): String!
   deleteCohort(cohortId: String!): Boolean!
   deleteCohortSession(sessionId: String!): Boolean!
   joinCohort(cohortId: String!, pin: String!, sessionId: String!): Boolean!
-  logAttendance(deviceSignature: String, qrCode: String!): String!
-  logAttendanceById(deviceSignature: String, qrCode: String!, traineeId: String!): String!
+  logAttendance(qrCode: String!): String!
   loginAdmin(email: String!, password: String!): AuthResponse!
   loginStudent(identifier: String!, password: String!): AuthResponse!
   loginWithGoogle(idToken: String!): AuthResponse!
-  registerAdmin(companyEmail: String, companyPhone: String, email: String!, name: String!, password: String!, tenantName: String!, username: String): String!
-  registerStudent(cohortId: String, cohortPin: String, email: String!, name: String!, password: String!, phone: String!, sessionId: String, username: String!): String!
-  updateCohort(cohortId: String!, durationMonths: Int, endDate: String, isActive: Boolean, name: String, pin: String, startDate: String): String!
-  updateCohortSession(escalationIntervalMinutes: Int, escalationRate: Int, escalationThresholdMinutes: Int, gracePeriodMinutes: Int, latePenaltyAmount: Int, name: String, recurrenceDays: [String!], sessionId: String!, startTime: String): String!
-  updateCompanyProfile(adminName: String, companyEmail: String, companyName: String, companyPhone: String, username: String): CompanyProfile!
+  registerAdmin(email: String!, name: String!, password: String!, tenantName: String!): String!
+  registerStudent(email: String!, name: String!, password: String!, phone: String!, username: String!): String!
+  updateCohort(cohortId: String!, endDate: String, isActive: Boolean, name: String, pin: String, startDate: String): String!
+  updateCohortSession(gracePeriodMinutes: Int, latePenaltyAmount: Int, name: String, recurrenceDays: [String!], sessionId: String!, startTime: String): String!
   updateProfile(name: String, username: String): User!
   waivePenalty(penaltyId: String!): Penalty!
 }
@@ -148,17 +100,14 @@ type PublicCohort {
 }
 
 type Query {
-  attendanceReport(cohortId: String, endDate: String!, sessionId: String, startDate: String!): [AttendanceReportRow!]!
-  availableCohorts: [PublicCohort!]!
+  availableCohorts: [Cohort!]!
   cohortDetails(id: String!): Cohort
-  companyProfile: CompanyProfile!
   dashboardMetrics: DashboardMetrics!
   generateCohortQr(cohortId: String!): String!
   getAttendanceLogs(cohortId: String, sessionId: String): [AttendanceLog!]!
   listCohorts: [Cohort!]!
   listStudents: [User!]!
   me: User!
-  myAttendanceSummary: StudentAttendanceSummary!
   myCohorts: [Cohort!]!
   myQrBadge: String!
   projectorQr(cohortId: String!, sessionId: String): String!
@@ -167,15 +116,8 @@ type Query {
   studentQrBadge(studentId: String!): String!
 }
 
-type StudentAttendanceSummary {
-  lateDays: Int!
-  lateLogs: [AttendanceLog!]!
-  presentDays: Int!
-  totalPenalty: Int!
-}
-
 type Subscription {
-  attendanceLogged(sessionId: String!): AttendanceEvent!
+  attendanceLogged(cohortId: String!): String!
   onAttendanceUpdated: Boolean!
   onCohortsUpdated: Boolean!
   onStudentsUpdated: Boolean!

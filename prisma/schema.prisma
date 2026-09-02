@@ -27,6 +27,8 @@ model User {
   name        String
   phone       String?
   username    String?
+  resetToken  String?
+  resetTokenExpiry DateTime?
   tenants     UserTenantRole[]
   cohorts     CohortMembership[]
   attendance  AttendanceLog[]

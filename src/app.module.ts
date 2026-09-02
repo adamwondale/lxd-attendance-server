@@ -15,6 +15,8 @@ import { CohortModule } from './cohort/cohort.module';
 import { AttendanceModule } from './attendance/attendance.module';
 import { PubSubModule } from './pubsub/pubsub.module';
 
+import { MailModule } from './mail/mail.module';
+
 @Module({
   imports: [
     GraphQLModule.forRoot<ApolloDriverConfig>({
@@ -42,6 +44,7 @@ import { PubSubModule } from './pubsub/pubsub.module';
     }),
     PrismaModule,
     PubSubModule,
+    MailModule,
     AuthModule,
     UsersModule,
     QrModule,

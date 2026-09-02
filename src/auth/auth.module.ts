@@ -12,10 +12,13 @@ if (!jwtSecret) {
   throw new Error('JWT_SECRET must be set and non-empty at startup.');
 }
 
+import { MailModule } from '../mail/mail.module';
+
 @Module({
   imports: [
     PassportModule,
     PrismaModule,
+    MailModule,
     JwtModule.register({
       secret: process.env.JWT_SECRET || 'fallback-secret-for-dev',
     }),

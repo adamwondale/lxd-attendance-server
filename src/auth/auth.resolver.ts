@@ -52,4 +52,20 @@ export class AuthResolver {
   async loginStudent(@Args('identifier') identifier: string, @Args('password') passwordRaw: string) {
     return this.authService.loginStudent(identifier, passwordRaw);
   }
+
+  @Mutation(() => Boolean)
+  async forgotPassword(
+    @Args('email') email: string, 
+    @Args('role') role: string
+  ) {
+    return this.authService.forgotPassword(email, role as 'ADMIN' | 'STUDENT');
+  }
+
+  @Mutation(() => Boolean)
+  async resetPassword(
+    @Args('token') token: string, 
+    @Args('password') passwordRaw: string
+  ) {
+    return this.authService.resetPassword(token, passwordRaw);
+  }
 }

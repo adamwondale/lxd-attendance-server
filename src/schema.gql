@@ -169,6 +169,7 @@ type Query {
 
 type StudentAttendanceSummary {
   lateDays: Int!
+  lateLogs: [AttendanceLog!]!
   presentDays: Int!
   recentLogs: [AttendanceLog!]!
   totalPenalty: Int!

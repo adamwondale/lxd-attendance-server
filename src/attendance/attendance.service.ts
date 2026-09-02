@@ -268,7 +268,7 @@ export class AttendanceService {
       presentDays: new Set(logs.map(log => log.date)).size,
       lateDays: new Set(lateLogs.map(log => log.date)).size,
       totalPenalty: logs.reduce((sum, log) => sum + (log.penalty?.amount || log.calculatedPenalty || 0), 0),
-      lateLogs,
+      recentLogs: logs.slice(0, 50),
     };
   }
 
@@ -348,12 +348,12 @@ export class AttendanceService {
     return rows;
   }
 
-  async waivePenalty(penaltyId: string, tenantId: string) {
+  async waivePenalty(penaltyId: string, tenantId: string, reason: string) {
     const penalty = await this.prisma.penalty.findFirst({
       where: { id: penaltyId, attendanceLog: { session: { cohort: { tenantId } } } },
       select: { id: true },
     });
     if (!penalty) throw new ForbiddenException('Penalty is not accessible for this tenant.');
-    return this.prisma.penalty.update({ where: { id: penalty.id }, data: { status: 'WAIVED' } });
+    return this.prisma.penalty.update({ where: { id: penalty.id }, data: { status: 'WAIVED', waiverReason: reason } });
   }
 }

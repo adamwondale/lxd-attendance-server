@@ -110,6 +110,7 @@ model Penalty {
   attendanceLogId String        @unique @db.ObjectId  
   amount          Int           @default(25) 
   status          String        @default("UNPAID")
+  waiverReason    String?
   createdAt       DateTime      @default(now())
   user            User          @relation(fields: [userId], references: [id])
   attendanceLog   AttendanceLog @relation(fields: [attendanceLogId], references: [id])

@@ -38,6 +38,7 @@ export class AttendanceResolver {
   async projectorRecentScans(
     @Args('cohortId') cohortId: string,
     @Args('sessionId', { nullable: true }) sessionId?: string,
+    @Args('since', { nullable: true }) since?: string,
   ) {
     const rows = await this.prisma.attendanceLog.findMany({
       where: {
@@ -49,6 +50,7 @@ export class AttendanceResolver {
           },
           ...(sessionId ? { id: sessionId } : {}),
         },
+        ...(since ? { scannedAt: { gte: new Date(Number(since)) } } : {}),
       },
       include: {
         user: { select: { id: true, name: true, email: true } },
@@ -90,8 +92,9 @@ export class AttendanceResolver {
   async waivePenalty(
     @CurrentUser() user: AuthenticatedUser,
     @Args('penaltyId') penaltyId: string,
+    @Args('reason') reason: string,
   ) {
-    const penalty = await this.attendanceService.waivePenalty(penaltyId, user.tenantId!);
+    const penalty = await this.attendanceService.waivePenalty(penaltyId, user.tenantId!, reason);
     this.pubSub.publish('attendanceUpdated', { onAttendanceUpdated: true });
     return penalty;
   }

@@ -65,8 +65,9 @@ export class UsersResolver {
     @Args('id') id: string,
     @Args('name', { nullable: true }) name?: string,
     @Args('email', { nullable: true }) email?: string,
+    @Args('username', { nullable: true }) username?: string,
   ) {
-    const updated = await this.usersService.adminUpdateStudent(user.tenantId!, id, name, email);
+    const updated = await this.usersService.adminUpdateStudent(user.tenantId!, id, name, email, username);
     this.pubSub.publish('studentsUpdated', { onStudentsUpdated: true });
     return updated;
   }

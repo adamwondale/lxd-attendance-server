@@ -119,5 +119,5 @@ export class StudentAttendanceSummary {
   @Field(() => Int) presentDays: number;
   @Field(() => Int) lateDays: number;
   @Field(() => Int) totalPenalty: number;
-  @Field(() => [AttendanceLog]) lateLogs: AttendanceLog[];
+  @Field(() => [AttendanceLog]) recentLogs: AttendanceLog[];
 }

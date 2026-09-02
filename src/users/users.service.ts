@@ -103,10 +103,11 @@ export class UsersService {
     });
   }
 
-  async adminUpdateStudent(tenantId: string, id: string, name?: string, email?: string) {
+  async adminUpdateStudent(tenantId: string, id: string, name?: string, email?: string, username?: string) {
     const data: Record<string, string> = {};
     if (name !== undefined) data.name = name;
     if (email !== undefined) data.email = email;
+    if (username !== undefined) data.username = username;
 
     const result = await this.prisma.user.updateMany({
       where: { id, tenants: { some: { tenantId, role: 'STUDENT' } } },

@@ -1,6 +1,7 @@
 import { Resolver, Mutation, Args } from '@nestjs/graphql';
 import { AuthService } from './auth.service';
 import { AuthResponse } from './dto/auth-response.dto';
+import { RegisterAdminArgs } from './dto/register-admin.args';
 
 @Resolver()
 export class AuthResolver {
@@ -8,15 +9,17 @@ export class AuthResolver {
 
   @Mutation(() => String)
   async registerAdmin(
-    @Args('email') email: string,
-    @Args('password') passwordRaw: string,
-    @Args('name') name: string,
-    @Args('tenantName') tenantName: string,
-    @Args('companyPhone', { nullable: true }) companyPhone?: string,
-    @Args('username', { nullable: true }) username?: string,
-    @Args('companyEmail', { nullable: true }) companyEmail?: string,
+    @Args() args: RegisterAdminArgs
   ) {
-    const user = await this.authService.registerAdmin(email, passwordRaw, name, tenantName, companyPhone, username, companyEmail);
+    const user = await this.authService.registerAdmin(
+      args.email, 
+      args.password, 
+      args.name, 
+      args.tenantName, 
+      args.companyPhone, 
+      args.username, 
+      args.companyEmail
+    );
     return user.id;
   }
 

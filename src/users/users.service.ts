@@ -21,14 +21,28 @@ export class UsersService {
   }
 
   async listStudents(tenantId: string) {
+    // Include both students with an explicit tenant role and older portal
+    // registrations that are linked to this tenant through a cohort membership.
+    // The latter were previously hidden from the admin Students page.
     return this.prisma.user.findMany({
       where: {
-        tenants: {
-          some: {
-            tenantId,
-            role: 'STUDENT',
+        OR: [
+          {
+            tenants: {
+              some: {
+                tenantId,
+                role: 'STUDENT',
+              },
+            },
           },
-        },
+          {
+            cohorts: {
+              some: {
+                cohort: { tenantId },
+              },
+            },
+          },
+        ],
       },
       orderBy: { name: 'asc' },
     });

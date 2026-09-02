@@ -179,7 +179,13 @@ export class CohortService {
       where: { tenantId, isActive: true },
     });
     const totalStudents = await this.prisma.user.count({
-      where: { tenants: { some: { tenantId, role: 'STUDENT' } } },
+      // Keep the dashboard total consistent with listStudents().
+      where: {
+        OR: [
+          { tenants: { some: { tenantId, role: 'STUDENT' } } },
+          { cohorts: { some: { cohort: { tenantId } } } },
+        ],
+      },
     });
 
     const today = new Date();

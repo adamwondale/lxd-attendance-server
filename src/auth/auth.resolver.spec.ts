@@ -28,14 +28,14 @@ describe('AuthResolver (Admin Registration)', () => {
       'admin@example.com',
       'password123',
       'Super Admin',
-      'LXD Academy'
+      'Hulu Track Academy'
     );
     
     expect(authServiceMock.registerAdmin).toHaveBeenCalledWith(
       'admin@example.com',
       'password123',
       'Super Admin',
-      'LXD Academy',
+      'Hulu Track Academy',
       undefined,
       undefined,
       undefined

@@ -24,14 +24,14 @@ export class MailService {
     const resetLink = `${baseUrl}/reset-password?token=${resetToken}&role=${role}`;
 
     const mailOptions = {
-      from: `"LXD Attendance" <${process.env.SMTP_USER}>`,
+      from: `"Hulu Track" <${process.env.SMTP_USER}>`,
       to,
       subject: 'Password Reset Request',
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e5e5e4;">
           <h2 style="color: #0a0a0a;">Password Reset Request</h2>
           <p style="color: #4a4a4a; line-height: 1.5;">
-            We received a request to reset the password for your LXD Attendance account.
+            We received a request to reset the password for your Hulu Track account.
             If you made this request, please click the button below to choose a new password:
           </p>
           <div style="text-align: center; margin: 30px 0;">

@@ -304,7 +304,15 @@ export class AttendanceService {
     };
   }
 
-  async getAttendanceReport(tenantId: string, startDate: string, endDate: string, cohortId?: string, sessionId?: string) {
+  async getAttendanceReport(
+    tenantId: string,
+    startDate: string,
+    endDate: string,
+    cohortId?: string,
+    sessionId?: string,
+    page: number = 1,
+    limit: number = 10,
+  ) {
     const memberships = await this.prisma.cohortMembership.findMany({
       where: {
         status: 'ACTIVE',
@@ -321,9 +329,12 @@ export class AttendanceService {
       include: { penalty: true },
     });
     const logMap = new Map(logs.map(l => [`${l.sessionId}|${l.userId}|${l.date}`, l]));
-    const rows: any[] = [];
+    const allRows: any[] = [];
     const start = new Date(`${startDate}T00:00:00Z`);
     const end = new Date(`${endDate}T00:00:00Z`);
+    
+    let summary = { present: 0, late: 0, absent: 0, penalty: 0 };
+
     for (let cursor = new Date(start); cursor <= end; cursor.setUTCDate(cursor.getUTCDate() + 1)) {
       const date = cursor.toISOString().slice(0, 10);
       const day = DAY_NAMES[cursor.getUTCDay()];
@@ -332,20 +343,42 @@ export class AttendanceService {
         const days = this.normalizeDays(membership.session.recurrenceDays);
         if (days.length && !days.includes('EVERYDAY') && !days.includes('ALL') && !days.includes(day)) continue;
         const log = logMap.get(`${membership.session.id}|${membership.userId}|${date}`);
-        rows.push({
+        
+        const status = log ? (log.isLate ? 'Late' : 'Present') : 'Absent';
+        const penalty = log?.penalty?.amount || log?.calculatedPenalty || 0;
+        
+        if (status === 'Present') summary.present++;
+        else if (status === 'Late') summary.late++;
+        else if (status === 'Absent') summary.absent++;
+        summary.penalty += penalty;
+
+        allRows.push({
           id: log?.id || `absent-${membership.session.id}-${membership.userId}-${date}`,
           date,
-          status: log ? (log.isLate ? 'Late' : 'Present') : 'Absent',
+          status,
           traineeId: membership.userId,
           traineeName: membership.user.name,
           sessionName: membership.session.name,
           cohortName: membership.session.cohort.name,
           latenessMinutes: log?.latenessMinutes || 0,
-          penalty: log?.penalty?.amount || log?.calculatedPenalty || 0,
+          penalty,
         });
       }
     }
-    return rows;
+    
+    // Reverse rows so newest dates are first (assuming that's standard for reports)
+    // Actually, cursor loops forward, so it's chronologically ascending right now. Let's make it descending.
+    allRows.reverse();
+
+    const totalCount = allRows.length;
+    const startIndex = (page - 1) * limit;
+    const paginatedRows = allRows.slice(startIndex, startIndex + limit);
+
+    return {
+      data: paginatedRows,
+      totalCount,
+      summary,
+    };
   }
 
   async waivePenalty(penaltyId: string, tenantId: string, reason: string) {

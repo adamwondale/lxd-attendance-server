@@ -115,6 +115,33 @@ export class AttendanceReportRow {
 }
 
 @ObjectType()
+export class AttendanceReportSummary {
+  @Field(() => Int)
+  present!: number;
+  
+  @Field(() => Int)
+  late!: number;
+  
+  @Field(() => Int)
+  absent!: number;
+  
+  @Field(() => Int)
+  penalty!: number;
+}
+
+@ObjectType()
+export class AttendanceReportResponse {
+  @Field(() => [AttendanceReportRow])
+  data!: AttendanceReportRow[];
+
+  @Field(() => Int)
+  totalCount!: number;
+
+  @Field(() => AttendanceReportSummary)
+  summary!: AttendanceReportSummary;
+}
+
+@ObjectType()
 export class StudentAttendanceSummary {
   @Field(() => Int) presentDays: number;
   @Field(() => Int) lateDays: number;

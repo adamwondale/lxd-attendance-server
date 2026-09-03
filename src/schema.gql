@@ -26,6 +26,12 @@ type AttendanceLog {
   user: UserReference!
 }
 
+type AttendanceReportResponse {
+  data: [AttendanceReportRow!]!
+  summary: AttendanceReportSummary!
+  totalCount: Int!
+}
+
 type AttendanceReportRow {
   cohortName: String
   date: String!
@@ -36,6 +42,13 @@ type AttendanceReportRow {
   status: String!
   traineeId: String!
   traineeName: String!
+}
+
+type AttendanceReportSummary {
+  absent: Int!
+  late: Int!
+  penalty: Int!
+  present: Int!
 }
 
 type AuthResponse {
@@ -150,7 +163,7 @@ type PublicCohort {
 }
 
 type Query {
-  attendanceReport(cohortId: String, endDate: String!, sessionId: String, startDate: String!): [AttendanceReportRow!]!
+  attendanceReport(cohortId: String, endDate: String!, limit: Int = 10, page: Int = 1, sessionId: String, startDate: String!): AttendanceReportResponse!
   availableCohorts: [PublicCohort!]!
   cohortDetails(id: String!): Cohort
   companyProfile: CompanyProfile!

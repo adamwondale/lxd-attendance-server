@@ -7,7 +7,7 @@ import { Roles } from '../auth/roles.decorator';
 import { PrismaService } from '../prisma/prisma.service';
 import { CurrentUser, type AuthenticatedUser } from '../auth/current-user.decorator';
 import type { PubSub } from 'graphql-subscriptions';
-import { AttendanceLog, AttendanceEvent, AttendanceReportRow, StudentAttendanceSummary, Penalty } from './dto/attendance.type';
+import { AttendanceLog, AttendanceEvent, AttendanceReportRow, AttendanceReportResponse, StudentAttendanceSummary, Penalty } from './dto/attendance.type';
 
 @Resolver()
 export class AttendanceResolver {
@@ -73,7 +73,7 @@ export class AttendanceResolver {
     }));
   }
 
-  @Query(() => [AttendanceReportRow])
+  @Query(() => AttendanceReportResponse)
   @UseGuards(GqlAuthGuard, RolesGuard)
   @Roles('COORDINATOR', 'SUPER_ADMIN', 'ADMIN')
   async attendanceReport(
@@ -82,8 +82,10 @@ export class AttendanceResolver {
     @Args('endDate') endDate: string,
     @Args('cohortId', { nullable: true }) cohortId?: string,
     @Args('sessionId', { nullable: true }) sessionId?: string,
+    @Args('page', { type: () => Int, nullable: true, defaultValue: 1 }) page?: number,
+    @Args('limit', { type: () => Int, nullable: true, defaultValue: 10 }) limit?: number,
   ) {
-    return this.attendanceService.getAttendanceReport(user.tenantId, startDate, endDate, cohortId, sessionId);
+    return this.attendanceService.getAttendanceReport(user.tenantId, startDate, endDate, cohortId, sessionId, page, limit);
   }
 
   @Mutation(() => Penalty)

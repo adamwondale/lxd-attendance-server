@@ -176,7 +176,7 @@ export class CohortService {
     const tenantId = await this.getTenantId(userId);
 
     return this.prisma.cohort.findMany({
-      where: { tenantId, isActive: true },
+      where: { tenantId },
       orderBy: { startDate: 'desc' },
       include: { sessions: true },
     });

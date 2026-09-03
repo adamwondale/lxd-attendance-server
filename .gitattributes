@@ -1,0 +1,4 @@
+# Keep source files LF across Windows, macOS and Linux so Git does not rewrite line endings.
+* text=auto eol=lf
+*.bat text eol=crlf
+*.cmd text eol=crlf

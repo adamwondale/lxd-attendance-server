@@ -25,15 +25,13 @@ export class CohortResolver {
     @Args('pin') pin: string,
     @Args('startDate') startDate: string,
     @Args('endDate') endDate: string,
-    @Args('durationMonths', { type: () => Int, nullable: true }) durationMonths?: number,
   ) {
     const cohort = await this.cohortService.createCohort(
       user.tenantId!,
       name,
       pin,
       new Date(startDate),
-      new Date(endDate),
-      durationMonths
+      new Date(endDate)
     );
     this.pubSub.publish('cohortsUpdated', { onCohortsUpdated: true });
     return cohort.id;
@@ -50,7 +48,6 @@ export class CohortResolver {
     @Args('startDate', { nullable: true }) startDate?: string,
     @Args('endDate', { nullable: true }) endDate?: string,
     @Args('isActive', { nullable: true }) isActive?: boolean,
-    @Args('durationMonths', { type: () => Int, nullable: true }) durationMonths?: number,
   ) {
     const cohort = await this.cohortService.updateCohort(
       user.tenantId!,
@@ -59,8 +56,7 @@ export class CohortResolver {
       pin,
       startDate ? new Date(startDate) : undefined,
       endDate ? new Date(endDate) : undefined,
-      isActive,
-      durationMonths
+      isActive
     );
     this.pubSub.publish('cohortsUpdated', { onCohortsUpdated: true });
     return cohort!.id;

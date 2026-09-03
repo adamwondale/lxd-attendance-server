@@ -4,13 +4,13 @@ import { CohortMembership } from '../../cohort/dto/cohort.type';
 @ObjectType()
 export class User {
   @Field(() => ID)
-  id: string;
+  id!: string;
 
   @Field()
-  email: string;
+  email!: string;
 
   @Field()
-  name: string;
+  name!: string;
 
   @Field({ nullable: true })
   phone?: string;

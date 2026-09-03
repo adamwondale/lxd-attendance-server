@@ -3,10 +3,10 @@ import { ObjectType, Field, ID, Int, Float } from '@nestjs/graphql';
 @ObjectType()
 export class UserReference {
   @Field(() => ID)
-  id: string;
+  id!: string;
 
   @Field()
-  name: string;
+  name!: string;
 
   @Field({ nullable: true })
   email?: string;
@@ -15,40 +15,40 @@ export class UserReference {
 @ObjectType()
 export class Penalty {
   @Field(() => ID)
-  id: string;
+  id!: string;
 
   @Field(() => Int)
-  amount: number;
+  amount!: number;
 
   @Field()
-  status: string;
+  status!: string;
 }
 
 @ObjectType()
 export class AttendanceLog {
   @Field(() => ID)
-  id: string;
+  id!: string;
 
   @Field()
-  date: string;
+  date!: string;
 
   @Field()
-  scannedAt: Date;
+  scannedAt!: Date;
 
   @Field()
-  isLate: boolean;
+  isLate!: boolean;
 
   @Field(() => Int)
-  latenessMinutes: number;
+  latenessMinutes!: number;
 
   @Field(() => Int)
-  calculatedPenalty: number;
+  calculatedPenalty!: number;
 
   @Field()
-  isManualScan: boolean;
+  isManualScan!: boolean;
 
   @Field(() => UserReference)
-  user: UserReference;
+  user!: UserReference;
 
   @Field(() => Penalty, { nullable: true })
   penalty?: Penalty;
@@ -57,49 +57,49 @@ export class AttendanceLog {
 @ObjectType()
 export class AttendanceEvent {
   @Field(() => ID)
-  id: string;
+  id!: string;
 
   @Field()
-  cohortId: string;
+  cohortId!: string;
 
   @Field()
-  sessionId: string;
+  sessionId!: string;
 
   @Field()
-  date: string;
+  date!: string;
 
   @Field()
-  scannedAt: Date;
+  scannedAt!: Date;
 
   @Field(() => UserReference)
-  user: UserReference;
+  user!: UserReference;
 
   @Field()
-  isLate: boolean;
+  isLate!: boolean;
 
   @Field(() => Int)
-  latenessMinutes: number;
+  latenessMinutes!: number;
 
   @Field(() => Int)
-  calculatedPenalty: number;
+  calculatedPenalty!: number;
 }
 
 @ObjectType()
 export class AttendanceReportRow {
   @Field(() => ID)
-  id: string;
+  id!: string;
 
   @Field()
-  date: string;
+  date!: string;
 
   @Field()
-  status: string;
+  status!: string;
 
   @Field()
-  traineeId: string;
+  traineeId!: string;
 
   @Field()
-  traineeName: string;
+  traineeName!: string;
 
   @Field({ nullable: true })
   sessionName?: string;
@@ -108,10 +108,10 @@ export class AttendanceReportRow {
   cohortName?: string;
 
   @Field(() => Int)
-  latenessMinutes: number;
+  latenessMinutes!: number;
 
   @Field(() => Int)
-  penalty: number;
+  penalty!: number;
 }
 
 @ObjectType()

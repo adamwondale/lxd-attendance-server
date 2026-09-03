@@ -111,7 +111,7 @@ type Mutation {
   adminScanStudentBadge(badgeCode: String!): String!
   adminUpdateStudent(email: String, id: String!, name: String, username: String): User!
   adminUpdateStudentMembership(cohortId: String!, sessionId: String!, userId: String!): Boolean!
-  createCohort(durationMonths: Int, endDate: String!, name: String!, pin: String!, startDate: String!): String!
+  createCohort(endDate: String!, name: String!, pin: String!, startDate: String!): String!
   createCohortSession(cohortId: String!, escalationIntervalMinutes: Int, escalationRate: Int, escalationThresholdMinutes: Int, gracePeriodMinutes: Int!, latePenaltyAmount: Int!, name: String!, recurrenceDays: [String!]!, startTime: String!): String!
   deleteCohort(cohortId: String!): Boolean!
   deleteCohortSession(sessionId: String!): Boolean!
@@ -125,7 +125,7 @@ type Mutation {
   registerAdmin(companyEmail: String, companyPhone: String, email: String!, name: String!, password: String!, tenantName: String!, username: String): String!
   registerStudent(cohortId: String, cohortPin: String, email: String!, name: String!, password: String!, phone: String!, sessionId: String, username: String!): String!
   resetPassword(password: String!, token: String!): Boolean!
-  updateCohort(cohortId: String!, durationMonths: Int, endDate: String, isActive: Boolean, name: String, pin: String, startDate: String): String!
+  updateCohort(cohortId: String!, endDate: String, isActive: Boolean, name: String, pin: String, startDate: String): String!
   updateCohortSession(escalationIntervalMinutes: Int, escalationRate: Int, escalationThresholdMinutes: Int, gracePeriodMinutes: Int, latePenaltyAmount: Int, name: String, recurrenceDays: [String!], sessionId: String!, startTime: String): String!
   updateCompanyProfile(adminName: String, companyEmail: String, companyName: String, companyPhone: String, username: String): CompanyProfile!
   updateProfile(name: String, username: String): User!

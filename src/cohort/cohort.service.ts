@@ -15,16 +15,25 @@ export class CohortService {
     return tenantId;
   }
 
+  private calculateDurationMonths(startDate: Date, endDate: Date) {
+    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+      throw new BadRequestException('Invalid cohort dates');
+    }
+    if (endDate < startDate) {
+      throw new BadRequestException('Cohort end date must be on or after the start date');
+    }
+    const days = (endDate.getTime() - startDate.getTime()) / 86_400_000;
+    return Math.max(1, Math.round(days / 30.4375));
+  }
+
   async createCohort(
     tenantId: string,
     name: string,
     pin: string,
     startDate: Date,
     endDate: Date,
-    durationMonths?: number,
   ) {
-    if (durationMonths !== undefined && ![3, 6].includes(durationMonths))
-      throw new BadRequestException('Cohort duration must be 3 or 6 months');
+    const durationMonths = this.calculateDurationMonths(startDate, endDate);
 
     const existing = await this.prisma.cohort.findUnique({ where: { pin } });
     if (existing) {
@@ -39,7 +48,7 @@ export class CohortService {
         startDate,
         endDate,
         isActive: true,
-        durationMonths: durationMonths ?? undefined,
+        durationMonths,
       },
     });
   }
@@ -52,15 +61,16 @@ export class CohortService {
     startDate?: Date,
     endDate?: Date,
     isActive?: boolean,
-    durationMonths?: number,
   ) {
-    if (durationMonths !== undefined && ![3, 6].includes(durationMonths))
-      throw new BadRequestException('Cohort duration must be 3 or 6 months');
 
     const cohort = await this.prisma.cohort.findFirst({
       where: { id: cohortId, tenantId },
     });
     if (!cohort) throw new BadRequestException('Cohort not found');
+
+    const nextStartDate = startDate ?? cohort.startDate;
+    const nextEndDate = endDate ?? cohort.endDate;
+    const durationMonths = this.calculateDurationMonths(nextStartDate, nextEndDate);
 
     const result = await this.prisma.cohort.updateMany({
       where: { id: cohortId, tenantId },
@@ -70,7 +80,7 @@ export class CohortService {
         ...(startDate !== undefined && { startDate }),
         ...(endDate !== undefined && { endDate }),
         ...(isActive !== undefined && { isActive }),
-        ...(durationMonths !== undefined && { durationMonths }),
+        durationMonths,
       },
     });
     if (!result.count) throw new BadRequestException('Cohort not found');

@@ -3,19 +3,19 @@ import { ObjectType, Field, ID, Int } from '@nestjs/graphql';
 @ObjectType()
 export class CohortMembership {
   @Field(() => ID)
-  id: string;
+  id!: string;
 
   @Field()
-  userId: string;
+  userId!: string;
 
   @Field()
-  cohortId: string;
+  cohortId!: string;
 
   @Field({ nullable: true })
   sessionId?: string;
 
   @Field()
-  status: string;
+  status!: string;
 
   @Field(() => Cohort, { nullable: true })
   cohort?: any;
@@ -27,58 +27,58 @@ export class CohortMembership {
 @ObjectType()
 export class CohortSession {
   @Field(() => ID)
-  id: string;
+  id!: string;
 
   @Field()
-  cohortId: string;
+  cohortId!: string;
 
   @Field()
-  name: string;
+  name!: string;
 
   @Field()
-  startTime: string;
+  startTime!: string;
 
   @Field(() => Int)
-  gracePeriodMinutes: number;
+  gracePeriodMinutes!: number;
 
   @Field(() => [String])
-  recurrenceDays: string[];
+  recurrenceDays!: string[];
 
   @Field(() => Int)
-  latePenaltyAmount: number;
+  latePenaltyAmount!: number;
 
   @Field(() => Int)
-  escalationThresholdMinutes: number;
+  escalationThresholdMinutes!: number;
 
   @Field(() => Int)
-  escalationRate: number;
+  escalationRate!: number;
 
   @Field(() => Int)
-  escalationIntervalMinutes: number;
+  escalationIntervalMinutes!: number;
 }
 
 @ObjectType()
 export class Cohort {
   @Field(() => ID)
-  id: string;
+  id!: string;
 
   @Field()
-  tenantId: string;
+  tenantId!: string;
 
   @Field()
-  name: string;
+  name!: string;
 
   @Field()
-  startDate: Date;
+  startDate!: Date;
 
   @Field()
-  pin: string;
+  pin!: string;
 
   @Field(() => Date)
-  endDate: Date;
+  endDate!: Date;
 
   @Field()
-  isActive: boolean;
+  isActive!: boolean;
 
   @Field(() => Int, { nullable: true })
   durationMonths?: number;
@@ -93,19 +93,19 @@ export class Cohort {
 @ObjectType()
 export class PublicCohort {
   @Field(() => ID)
-  id: string;
+  id!: string;
 
   @Field()
-  name: string;
+  name!: string;
 
   @Field(() => Date)
-  startDate: Date;
+  startDate!: Date;
 
   @Field(() => Date)
-  endDate: Date;
+  endDate!: Date;
 
   @Field()
-  isActive: boolean;
+  isActive!: boolean;
 
   @Field(() => Int, { nullable: true })
   durationMonths?: number;

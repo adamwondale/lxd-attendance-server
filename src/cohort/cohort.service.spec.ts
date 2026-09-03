@@ -89,21 +89,24 @@ describe('CohortService (TDD)', () => {
   });
 
   describe('createCohort', () => {
-    it('rejects an invalid duration before persisting', async () => {
+    it('rejects an end date before the start date', async () => {
       await expect(
-        service.updateCohort('t1', 'c1', undefined, undefined, undefined, undefined, undefined, 12),
+        service.createCohort('t1', 'C1', '1234', new Date('2026-06-01'), new Date('2026-05-01')),
       ).rejects.toThrow(BadRequestException);
-      expect(prismaMock.cohort.updateMany).not.toHaveBeenCalled();
+      expect(prismaMock.cohort.create).not.toHaveBeenCalled();
     });
 
-    it('creates a cohort successfully', async () => {
+    it('calculates and stores duration from the selected dates', async () => {
       prismaMock.cohort.findUnique.mockResolvedValue(null);
       prismaMock.cohort.create.mockResolvedValue({ id: 'c1' } as any);
 
-      const startDate = new Date();
-      const endDate = new Date();
-      const result = await service.createCohort('t1', 'C1', '1234', startDate, endDate);
+      const result = await service.createCohort(
+        't1', 'C1', '1234', new Date('2026-01-01'), new Date('2026-04-01'),
+      );
       expect(result.id).toBe('c1');
+      expect(prismaMock.cohort.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ durationMonths: 3 }),
+      });
     });
   });
 });

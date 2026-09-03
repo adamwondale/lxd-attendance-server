@@ -8,16 +8,21 @@ export class MailService {
 
   constructor() {
     this.transporter = nodemailer.createTransport({
-      service: 'gmail',
+      host: 'smtp.gmail.com',
+      port: 465,
+      secure: true,
       auth: {
         user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS, // App Password
+        pass: process.env.SMTP_PASS,
       },
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 15000,
     });
   }
 
   async sendPasswordResetEmail(to: string, resetToken: string, role: 'ADMIN' | 'STUDENT') {
-    const baseUrl = process.env.CLIENT_URL || 'http://localhost:3001';
+    const baseUrl = process.env.CLIENT_URL || 'https://hulu-track.vercel.app';
     
     // We can point both to the same reset-password page, or separate ones if needed.
     // Let's use a unified /reset-password page for now.

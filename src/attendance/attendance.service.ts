@@ -357,27 +357,33 @@ export class AttendanceService {
           date,
           status,
           traineeId: membership.userId,
-          traineeName: membership.user.name,
-          sessionName: membership.session.name,
-          cohortName: membership.session.cohort.name,
-          latenessMinutes: log?.latenessMinutes || 0,
-          penalty,
+          traineeName: membership.user?.name || 'Unknown Student',
+          sessionName: membership.session?.name || '',
+          cohortName: membership.session?.cohort?.name || '',
+          latenessMinutes: Math.round(Number(log?.latenessMinutes || 0)),
+          penalty: Math.round(Number(penalty)),
         });
       }
     }
     
-    // Reverse rows so newest dates are first (assuming that's standard for reports)
-    // Actually, cursor loops forward, so it's chronologically ascending right now. Let's make it descending.
+    // Reverse rows so newest dates are first
     allRows.reverse();
 
+    const pageNum = Math.max(1, Number(page) || 1);
+    const limitNum = Math.max(1, Number(limit) || 10);
     const totalCount = allRows.length;
-    const startIndex = (page - 1) * limit;
-    const paginatedRows = allRows.slice(startIndex, startIndex + limit);
+    const startIndex = (pageNum - 1) * limitNum;
+    const paginatedRows = allRows.slice(startIndex, startIndex + limitNum);
 
     return {
       data: paginatedRows,
       totalCount,
-      summary,
+      summary: {
+        present: summary.present,
+        late: summary.late,
+        absent: summary.absent,
+        penalty: Math.round(summary.penalty),
+      },
     };
   }
 
